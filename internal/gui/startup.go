@@ -5,13 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"deck/internal/appdir"
+
 	"golang.org/x/sys/windows/registry"
 )
 
 // StartupManager toggles the per-user Run key entry.
 type StartupManager struct{}
 
-const startupValueName = "wide-pure"
+const startupValueName = appdir.Name
 
 const runKeyPath = `Software\Microsoft\Windows\CurrentVersion\Run`
 

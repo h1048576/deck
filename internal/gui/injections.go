@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 //go:embed injection-templates.json

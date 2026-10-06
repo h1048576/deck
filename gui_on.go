@@ -3,7 +3,7 @@
 package main
 
 import (
-	"wide-pure/internal/gui"
+	"deck/internal/gui"
 )
 
 const hasGUI = true

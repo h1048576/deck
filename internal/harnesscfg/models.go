@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"crypto/sha256"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/goccy/go-yaml/ast"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 // ReservedKey carries the opencode map key inside a model entry (the

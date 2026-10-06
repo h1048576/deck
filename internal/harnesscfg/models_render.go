@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/goccy/go-yaml/ast"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 func timestampMillis() int64 { return time.Now().UnixMilli() }

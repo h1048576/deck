@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 // Report mirrors the launcher's report(message, level).

@@ -3,7 +3,7 @@ package gui
 import (
 	"encoding/json"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 // installTerminalFollowJS is the compiled form of the original TypeScript

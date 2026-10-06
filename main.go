@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"wide-pure/internal/gui"
+	"deck/internal/appdir"
+	"deck/internal/gui"
 )
 
-var version = "0.1.0"
+var version = "0.0.1"
 
 func main() {
 	args := os.Args[1:]
@@ -26,9 +27,9 @@ func main() {
 			fatal(err)
 		}
 	case "version", "--version", "-v":
-		fmt.Println("wide-pure", version)
+		fmt.Println(appdir.Name, version)
 	default:
-		fs := flag.NewFlagSet("wide-pure", flag.ContinueOnError)
+		fs := flag.NewFlagSet(appdir.Name, flag.ContinueOnError)
 		serve := fs.String("serve", "", "serve the UI in a browser at the given address instead of opening a window")
 		if err := fs.Parse(args); err != nil {
 			fatal(err)
@@ -46,6 +47,6 @@ func main() {
 }
 
 func fatal(err error) {
-	fmt.Fprintln(os.Stderr, "wide-pure:", err)
+	fmt.Fprintf(os.Stderr, "%s: %+v\n", appdir.Name, err)
 	os.Exit(1)
 }

@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"github.com/goccy/go-yaml/token"
 	"gopkg.in/yaml.v3"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 // yamlDoc is a comment-preserving editable YAML document.

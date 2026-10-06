@@ -3,7 +3,7 @@ package gui
 import (
 	"strings"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 // droidInjectionSource builds Droid's combined style/terminal/sidebar script.

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"wide-pure/internal/settings"
-	"wide-pure/internal/widecfg"
+	"deck/internal/harnesscfg"
+	"deck/internal/settings"
 )
 
 //go:embed all:assets
@@ -54,9 +54,9 @@ type host struct {
 	store    *settings.Store
 	rt       *applicationRuntime
 	batch    *BatchRunner
-	harness  *widecfg.HarnessManager
-	models   *widecfg.ModelsManager
-	mcps     *widecfg.McpsManager
+	harness  *harnesscfg.HarnessManager
+	models   *harnesscfg.ModelsManager
+	mcps     *harnesscfg.McpsManager
 	startup  *StartupManager
 	windows  Windows
 	notices  []JobResult
@@ -74,9 +74,9 @@ func (h *host) init(home string) {
 	h.store.Load()
 	h.rt = newApplicationRuntime(scriptsDir())
 	h.batch = newBatchRunner(h.rt, h.rt.droid)
-	h.harness = widecfg.NewHarnessManager(home, moveToTrash)
-	h.models = widecfg.NewModelsManager(home, modelBackupsDir())
-	h.mcps = widecfg.NewMcpsManager(home, mcpBackupsDir(), map[string]string{})
+	h.harness = harnesscfg.NewHarnessManager(home, moveToTrash)
+	h.models = harnesscfg.NewModelsManager(home, modelBackupsDir())
+	h.mcps = harnesscfg.NewMcpsManager(home, mcpBackupsDir(), map[string]string{})
 	h.startup = NewStartupManager()
 }
 
@@ -248,7 +248,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		writeJSON(rw, http.StatusOK, h.models.Inventory())
 	})
 	mux.HandleFunc("POST /api/models/detail", func(rw http.ResponseWriter, r *http.Request) {
-		var target widecfg.ModelTarget
+		var target harnesscfg.ModelTarget
 		if err := decodeBody(r, &target); err != nil {
 			writeError(rw, err)
 			return
@@ -274,7 +274,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		}
 	})
 	mux.HandleFunc("POST /api/models/save", func(rw http.ResponseWriter, r *http.Request) {
-		var change widecfg.ModelChange
+		var change harnesscfg.ModelChange
 		if err := decodeBody(r, &change); err != nil {
 			writeError(rw, err)
 			return
@@ -289,7 +289,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		writeResult(rw, map[string]bool{"ok": err == nil}, err)
 	})
 	mux.HandleFunc("POST /api/models/delete", func(rw http.ResponseWriter, r *http.Request) {
-		var target widecfg.ModelTarget
+		var target harnesscfg.ModelTarget
 		if err := decodeBody(r, &target); err != nil {
 			writeError(rw, err)
 			return
@@ -304,7 +304,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		writeResult(rw, map[string]bool{"ok": err == nil}, err)
 	})
 	mux.HandleFunc("POST /api/models/reorder", func(rw http.ResponseWriter, r *http.Request) {
-		var order widecfg.ModelOrder
+		var order harnesscfg.ModelOrder
 		if err := decodeBody(r, &order); err != nil {
 			writeError(rw, err)
 			return
@@ -319,7 +319,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		writeResult(rw, map[string]bool{"ok": err == nil}, err)
 	})
 	mux.HandleFunc("POST /api/models/batch", func(rw http.ResponseWriter, r *http.Request) {
-		var change widecfg.ModelBatchChange
+		var change harnesscfg.ModelBatchChange
 		if err := decodeBody(r, &change); err != nil {
 			writeError(rw, err)
 			return
@@ -352,7 +352,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		}
 	})
 	mux.HandleFunc("POST /api/mcps/detail", func(rw http.ResponseWriter, r *http.Request) {
-		var target widecfg.McpTarget
+		var target harnesscfg.McpTarget
 		if err := decodeBody(r, &target); err != nil {
 			writeError(rw, err)
 			return
@@ -378,7 +378,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		}
 	})
 	mux.HandleFunc("POST /api/mcps/save", func(rw http.ResponseWriter, r *http.Request) {
-		var change widecfg.McpChange
+		var change harnesscfg.McpChange
 		if err := decodeBody(r, &change); err != nil {
 			writeError(rw, err)
 			return
@@ -393,7 +393,7 @@ func (h *host) buildRouter() *http.ServeMux {
 		writeResult(rw, map[string]bool{"ok": err == nil}, err)
 	})
 	mux.HandleFunc("POST /api/mcps/delete", func(rw http.ResponseWriter, r *http.Request) {
-		var target widecfg.McpTarget
+		var target harnesscfg.McpTarget
 		if err := decodeBody(r, &target); err != nil {
 			writeError(rw, err)
 			return
@@ -783,5 +783,5 @@ func (h *host) flushAfterOperation() {
 	h.windows.AfterOperation()
 }
 
-// widecfgValue adapts (value, error) returns to writeResult's signature.
-func widecfgValue[T any](value T, err error) (T, error) { return value, err }
+// harnesscfgValue adapts (value, error) returns to writeResult's signature.
+func harnesscfgValue[T any](value T, err error) (T, error) { return value, err }

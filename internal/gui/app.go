@@ -11,8 +11,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"wide-pure/internal/appdir"
-	"wide-pure/internal/settings"
+	"deck/internal/appdir"
+	"deck/internal/settings"
 )
 
 // Windows is the window capability surface the JSON API may touch; the
@@ -50,8 +50,11 @@ func platformName() string {
 
 // Run starts the desktop application.
 func Run(version string) error {
+	if err := appdir.MigrateLegacyConfig(); err != nil {
+		return err
+	}
 	if err := ExtractScripts(scriptsDir()); err != nil {
-		log.Println("wide-pure:", err)
+		log.Printf("%s: %+v", appdir.Name, err)
 	}
 	h := newHost(version, false)
 	h.init(homeDir())
@@ -63,7 +66,7 @@ func Run(version string) error {
 	h.windows = desktopHost
 
 	app = application.New(application.Options{
-		Name:        "wide-pure",
+		Name:        appdir.Name,
 		Description: "launch and re-skin AI coding desktop apps",
 		Icon:        appIcon,
 		Assets: application.AssetOptions{
@@ -73,7 +76,7 @@ func Run(version string) error {
 			WebviewUserDataPath: appdir.WebViewData(),
 		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "app.wide-pure.desktop",
+			UniqueID: "app." + appdir.Name + ".desktop",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				application.InvokeAsync(func() {
 					if window != nil {
@@ -87,12 +90,12 @@ func Run(version string) error {
 			h.rt.disposeConnections()
 		},
 		ErrorHandler: func(err error) {
-			log.Println("wide-pure:", err)
+			log.Printf("%s: %+v", appdir.Name, err)
 		},
 	})
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             "main",
-		Title:            "wide-pure",
+		Title:            appdir.Name,
 		URL:              "/",
 		Width:            1260,
 		Height:           880,
@@ -149,14 +152,17 @@ func Run(version string) error {
 
 // Serve runs the same UI in a plain browser for development and testing.
 func Serve(version string, addr string) error {
+	if err := appdir.MigrateLegacyConfig(); err != nil {
+		return err
+	}
 	if err := ExtractScripts(scriptsDir()); err != nil {
-		log.Println("wide-pure:", err)
+		log.Printf("%s: %+v", appdir.Name, err)
 	}
 	h := newHost(version, true)
 	h.init(homeDir())
 	h.windows = &webWindows{}
 	handler := h.Handler()
-	log.Printf("wide-pure: serving UI at http://%s", addr)
+	log.Printf("%s: serving UI at http://%s", appdir.Name, addr)
 	return serveHTTP(addr, handler)
 }
 

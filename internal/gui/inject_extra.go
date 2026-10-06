@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 // dshInjection targets the official DeepSeek Harness desktop app via its

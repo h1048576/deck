@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 // Save creates, updates or copies one MCP entry.

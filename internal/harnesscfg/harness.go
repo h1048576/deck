@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"crypto/rand"

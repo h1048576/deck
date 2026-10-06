@@ -1,4 +1,4 @@
-// wide-pure 前端入口：外壳、页面切换、批量操作、设置持久化。
+// deck 前端入口：外壳、页面切换、批量操作、设置持久化。
 import { el, html, icon, SettingRow, Switch, PixelControl, DimensionControl, SelectControl, FontControl } from './controls.js'
 import { api, messageOf } from './api.js'
 import { agentsResource, skillsResource, modelsResource, mcpsResource, displayHarnessPath } from './resources.js'
@@ -51,7 +51,7 @@ const PLATFORM_NAMES = { windows: 'Windows', darwin: 'macOS', linux: 'Linux' }
 const state = {
   ready: false,
   desktop: false,
-  version: '0.1.0',
+  version: '0.0.1',
   platform: 'windows',
   active: 'start',
   collapsed: false,
@@ -155,7 +155,7 @@ function renderBrandBar() {
   bar.textContent = ''
   const caption = el('div', 'brand-caption')
   caption.appendChild(html('span', '', icon('maximize2', 22)))
-  if (!state.collapsed) caption.appendChild(el('span', '', 'wide-pure'))
+  if (!state.collapsed) caption.appendChild(el('span', '', 'deck'))
   bar.appendChild(caption)
   const toggle = el('button', 'icon-button collapse-toggle')
   toggle.title = state.collapsed ? '展开菜单' : '收起菜单'
@@ -243,7 +243,7 @@ function renderTitlebar() {
   const bar = shell.titlebar
   bar.textContent = ''
   const breadcrumb = el('div', 'breadcrumb')
-  breadcrumb.appendChild(el('span', '', 'wide-pure'))
+  breadcrumb.appendChild(el('span', '', 'deck'))
   breadcrumb.appendChild(html('span', '', icon('chevronRight', 13)))
   breadcrumb.appendChild(el('span', '', pageTitle()))
   bar.appendChild(breadcrumb)
@@ -1037,11 +1037,11 @@ function renderRestoreConfirmation() {
   if (shell.overlays.querySelector('.restore-confirmation-dialog')) return
   const request = state.restoreConfirmation
   const disabled = !!state.busy || !state.ready || !!state.bootError
-  const targetName = request.target === 'settings' ? 'wide-pure' : APPLICATIONS[request.target].name
+  const targetName = request.target === 'settings' ? 'deck' : APPLICATIONS[request.target].name
   const message = request.action === 'normal'
     ? `将恢复 ${targetName} 的默认界面并重新启动应用，请先保存当前工作。是否继续？`
     : request.target === 'settings'
-      ? '将把 wide-pure 的主题、字体、字号、模式、Harness 折叠、开机启动和启动方式恢复为预设值。是否继续？'
+      ? '将把 deck 的主题、字体、字号、模式、Harness 折叠、开机启动和启动方式恢复为预设值。是否继续？'
       : `将把 ${targetName} 的设置恢复为预设值。是否继续？`
   const content = el('div')
   const text = el('p', 'restore-confirmation-message', message)
@@ -1062,7 +1062,7 @@ function renderRestoreConfirmation() {
   content.appendChild(actions)
   const dialog = ModelDialog({
     title: request.action === 'normal' ? '恢复默认界面' : '恢复预设值',
-    subtitle: request.target === 'settings' ? 'wide-pure 设置' : APPLICATIONS[request.target].name,
+    subtitle: request.target === 'settings' ? 'deck 设置' : APPLICATIONS[request.target].name,
     disabled,
     returnFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
     onCancel: () => { state.restoreConfirmation = null },

@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 // droidConnection is Droid's single persistent page connection.

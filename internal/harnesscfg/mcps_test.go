@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 func TestMcpsClaudeLifecycle(t *testing.T) {

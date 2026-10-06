@@ -47,7 +47,7 @@ type DroidSettings struct {
 	PreventSummary bool   `json:"preventSummary"`
 }
 
-// AppearanceSettings configures the wide window itself.
+// AppearanceSettings configures the deck window itself.
 type AppearanceSettings struct {
 	FontFamily string `json:"fontFamily"`
 	FontSize   int    `json:"fontSize"`

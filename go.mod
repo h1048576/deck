@@ -1,4 +1,4 @@
-module wide-pure
+module deck
 
 go 1.25.0
 

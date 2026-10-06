@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 // McpHarnessId identifies an MCP-capable harness.

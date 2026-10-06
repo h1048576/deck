@@ -1,4 +1,4 @@
-package widecfg
+package harnesscfg
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"wide-pure/internal/jsonc"
+	"deck/internal/jsonc"
 )
 
 // Save creates, updates or copies one model.
@@ -564,7 +564,7 @@ func (m *ModelsManager) commitAll(changes []*fileChange) error {
 				}
 			}
 			if rollbackFailed {
-				return fmt.Errorf("写入配置失败，部分文件未能恢复，请从 wide-pure 的 model-backups 目录恢复")
+				return fmt.Errorf("写入配置失败，部分文件未能恢复，请从 deck 的 model-backups 目录恢复")
 			}
 			return fmt.Errorf("写入模型配置失败：%v", err)
 		}

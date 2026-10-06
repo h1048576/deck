@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-// Attach the parent console so `wide-pure serve` prints output even though
+// Attach the parent console so `deck serve` prints output even though
 // the release binary is built with -H windowsgui.
 func init() {
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")

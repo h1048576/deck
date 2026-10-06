@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"wide-pure/internal/settings"
+	"deck/internal/settings"
 )
 
 // BatchApplicationResult is one app's outcome in a batch run.
