@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-mode="compact">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*" />
+  <title>wide-pure</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div id="root">
+    <div class="app-shell" id="app-shell">
+      <aside class="sidebar">
+        <div class="brand-bar" id="brand-bar"></div>
+        <div class="sidebar-navigation">
+          <div class="menu-section-label">全局</div>
+          <nav aria-label="全局菜单" class="feature-menu" id="menu-global"></nav>
+          <div class="menu-section-label">应用</div>
+          <nav aria-label="应用菜单" class="feature-menu" id="menu-apps"></nav>
+        </div>
+        <span class="sr-only" role="status" aria-live="polite" id="menu-announcement"></span>
+        <div class="sidebar-bottom" id="sidebar-bottom"></div>
+      </aside>
+      <div class="main-shell">
+        <header class="titlebar" id="titlebar"></header>
+        <main class="main-content" id="main-content"><div class="page-container" id="page-container"></div></main>
+      </div>
+    </div>
+    <div id="overlays"></div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
