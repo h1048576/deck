@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
+
+	"deck/internal/appdir"
 )
 
 // Change mutates the current preferences snapshot.
@@ -18,7 +22,7 @@ type queuedChange struct {
 	done chan error
 }
 
-// Store persists preferences to settings.json with debounced atomic writes.
+// Store persists preferences to setting.json with debounced atomic writes.
 type Store struct {
 	mu       sync.Mutex
 	cond     *sync.Cond
@@ -43,7 +47,17 @@ func NewStore(root string) *Store {
 func (s *Store) Prefs() Preferences {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.prefs
+	return clonePreferences(s.prefs)
+}
+
+func clonePreferences(prefs Preferences) Preferences {
+	prefs.Applications = maps.Clone(prefs.Applications)
+	prefs.MenuOrder = slices.Clone(prefs.MenuOrder)
+	if prefs.OpenAtLogin != nil {
+		enabled := *prefs.OpenAtLogin
+		prefs.OpenAtLogin = &enabled
+	}
+	return prefs
 }
 
 // Warning returns the config warning shown to the user.
@@ -60,13 +74,13 @@ func (s *Store) IsSaving() bool {
 	return s.pending > 0
 }
 
-// Load reads settings.json, falling back to defaults on any error and
+// Load reads setting.json, falling back to defaults on any error and
 // keeping the unreadable file intact for manual recovery.
 func (s *Store) Load() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.prefs = DefaultPreferences()
-	text, err := os.ReadFile(filepath.Join(s.root, "settings.json"))
+	text, err := os.ReadFile(filepath.Join(s.root, appdir.SettingsName))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			s.warning = "本机设置文件无法读取，已暂用默认值。原文件会保留。"
@@ -133,6 +147,9 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	}
 	if data["startupMode"] == "maximized" {
 		prefs.StartupMode = "maximized"
+	}
+	if enabled, ok := data["openAtLogin"].(bool); ok {
+		prefs.OpenAtLogin = &enabled
 	}
 	if rawAppearance, present := data["appearance"]; present {
 		appearanceMap, _ := rawAppearance.(map[string]any)
@@ -211,7 +228,7 @@ func (s *Store) flushBatch() {
 	}
 	changes := s.changes
 	s.changes = nil
-	current := s.prefs
+	current := clonePreferences(s.prefs)
 	for _, entry := range changes {
 		current = entry.fn(current)
 	}
@@ -221,19 +238,21 @@ func (s *Store) flushBatch() {
 			return err
 		}
 		if s.warning == "" && bytes.Equal(text, mustMarshal(s.prefs)) {
-			return nil
+			if _, err := os.Stat(filepath.Join(s.root, appdir.SettingsName)); err == nil {
+				return nil
+			}
 		}
 		if err := os.MkdirAll(s.root, 0o755); err != nil {
 			return err
 		}
 		if s.warning != "" {
-			backup := filepath.Join(s.root, fmt.Sprintf("settings.backup-%d.json", time.Now().UnixMilli()))
-			if err := os.Rename(filepath.Join(s.root, "settings.json"), backup); err != nil && !os.IsNotExist(err) {
+			backup := filepath.Join(s.root, fmt.Sprintf("setting.backup-%d.json", time.Now().UnixMilli()))
+			if err := os.Rename(filepath.Join(s.root, appdir.SettingsName), backup); err != nil && !os.IsNotExist(err) {
 				return err
 			}
 			s.warning = ""
 		}
-		file := filepath.Join(s.root, "settings.json")
+		file := filepath.Join(s.root, appdir.SettingsName)
 		tmp := file + ".tmp"
 		if err := os.WriteFile(tmp, text, 0o644); err != nil {
 			return err

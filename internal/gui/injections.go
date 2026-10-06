@@ -13,6 +13,9 @@ import (
 //go:embed injection-templates.json
 var injectionTemplatesJSON []byte
 
+//go:embed scripts/codex-wide/content-width.js
+var codexContentWidthSource string
+
 // jsString renders a JS string literal exactly like JSON.stringify.
 func jsString(value string) string {
 	var buf strings.Builder
@@ -68,6 +71,9 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 		hiddenChangesCss = `[data-testid="chat-summary-panel"]{display:none !important;}`
 	}
 	safeWidth := s.Width
+	if id == "codex" && isAutoSize(s.Width) {
+		safeWidth = "100%"
+	}
 	if (id == "qoder" || id == "workbuddy") && !isAutoSize(s.Width) {
 		safeWidth = fmt.Sprintf("min(100%%, %s)", s.Width)
 	}
@@ -113,6 +119,7 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 		return value
 	})
 	source := strings.ReplaceAll(template.Source, "$cssJson", jsString(css))
+	source = strings.ReplaceAll(source, "$widthGuardSource", codexContentWidthSource)
 	source = strings.ReplaceAll(source, "$PreventSummary", map[bool]string{true: "1", false: "0"}[s.PreventSummary])
 	sidebar := sidebarInjection(id, s.SidebarWidth)
 	if id == "workbuddy" {

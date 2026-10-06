@@ -33,9 +33,9 @@
         "info": {
           "0409": {
             "CompanyName": "deck",
-            "FileDescription": "launch and re-skin AI coding desktop apps",
+            "FileDescription": "deck",
             "LegalCopyright": "MIT",
-            "OriginalFilename": "deck-windows-amd64.exe",
+            "OriginalFilename": "deck.exe",
             "ProductName": "deck"
           }
         }

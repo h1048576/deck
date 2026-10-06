@@ -159,6 +159,7 @@ type Preferences struct {
 	Appearance              AppearanceSettings          `json:"appearance"`
 	Harness                 HarnessSettings             `json:"harness"`
 	StartupMode             string                      `json:"startupMode"`
+	OpenAtLogin             *bool                       `json:"openAtLogin,omitempty"`
 	MenuOrder               []FeatureId                 `json:"menuOrder"`
 	MenuOrderVersion        int                         `json:"menuOrderVersion"`
 	ApplicationPortsVersion int                         `json:"applicationPortsVersion"`

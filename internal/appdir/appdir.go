@@ -10,53 +10,40 @@ import (
 // Name is the application name used for the config directory.
 const Name = "deck"
 
-// Config returns the directory holding settings.json and backups.
+// SettingsName is shared by the settings store and configuration migration.
+const SettingsName = "setting.json"
+
+// Config returns the directory holding setting.json and backups.
 func Config() string {
 	if custom := os.Getenv("DECK_CONFIG_DIR"); strings.TrimSpace(custom) != "" {
 		return custom
 	}
-	return defaultConfig(Name)
-}
-
-func defaultConfig(name string) string {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, "."+name)
-	}
-	return filepath.Join(base, name)
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "."+Name)
 }
 
 // MigrateLegacyConfig copies existing preferences and backups on first launch.
-// Custom directories and existing configurations are left intact.
+// Existing setting.json files are never replaced; legacy files are retained.
 func MigrateLegacyConfig() error {
-	if strings.TrimSpace(os.Getenv("DECK_CONFIG_DIR")) != "" {
-		return nil
-	}
 	target := Config()
-	if _, err := os.Stat(target); err == nil {
+	if _, err := os.Stat(SettingsFile()); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	source := defaultConfig("wide-pure")
-	if info, err := os.Stat(source); os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		return err
-	} else if !info.IsDir() {
-		return nil
+	candidates := []string{filepath.Join(target, "settings.json")}
+	if strings.TrimSpace(os.Getenv("DECK_CONFIG_DIR")) == "" {
+		if base, err := os.UserConfigDir(); err == nil {
+			candidates = append(candidates,
+				filepath.Join(base, Name, SettingsName),
+				filepath.Join(base, Name, "settings.json"),
+				filepath.Join(base, "wide-pure", "settings.json"))
+		}
+		home, _ := os.UserHomeDir()
+		candidates = append(candidates, filepath.Join(home, ".wide-pure", "settings.json"))
 	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
-	}
-	stage, err := os.MkdirTemp(filepath.Dir(target), ".deck-config-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(stage)
-	for _, name := range []string{"settings.json", "model-backups", "mcp-backups"} {
-		path := filepath.Join(source, name)
+	source := ""
+	for _, path := range candidates {
 		info, err := os.Stat(path)
 		if os.IsNotExist(err) {
 			continue
@@ -64,26 +51,64 @@ func MigrateLegacyConfig() error {
 		if err != nil {
 			return err
 		}
-		destination := filepath.Join(stage, name)
-		if info.IsDir() {
-			if err := os.CopyFS(destination, os.DirFS(path)); err != nil {
-				return err
-			}
+		if info.Mode().IsRegular() {
+			source = path
+			break
+		}
+	}
+	if source == "" {
+		return nil
+	}
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		return err
+	}
+	stage, err := os.MkdirTemp(target, ".config-migration-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stage)
+	if err := os.WriteFile(filepath.Join(stage, SettingsName), data, 0o600); err != nil {
+		return err
+	}
+	for _, name := range []string{"model-backups", "mcp-backups"} {
+		destination := filepath.Join(target, name)
+		if _, err := os.Stat(destination); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		path := filepath.Join(filepath.Dir(source), name)
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
 			continue
 		}
-		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(destination, data, 0o600); err != nil {
-			return err
+		if info.IsDir() {
+			stagedBackup := filepath.Join(stage, name)
+			if err := os.CopyFS(stagedBackup, os.DirFS(path)); err != nil {
+				return err
+			}
+			if err := os.Rename(stagedBackup, destination); err != nil {
+				return err
+			}
 		}
 	}
-	return os.Rename(stage, target)
+	if _, err := os.Stat(SettingsFile()); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return os.Rename(filepath.Join(stage, SettingsName), SettingsFile())
 }
 
-// SettingsFile returns the settings.json path.
-func SettingsFile() string { return filepath.Join(Config(), "settings.json") }
+// SettingsFile returns the setting.json path.
+func SettingsFile() string { return filepath.Join(Config(), SettingsName) }
 
 // ModelBackups returns the directory for pre-write model config backups.
 func ModelBackups() string { return filepath.Join(Config(), "model-backups") }

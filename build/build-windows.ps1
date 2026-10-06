@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $distPath = Join-Path $projectRoot 'dist'
-$executablePath = Join-Path $distPath 'deck-windows-amd64.exe'
+$executablePath = Join-Path $distPath 'deck.exe'
 $archivePath = Join-Path $distPath "deck-$Version-windows-amd64.zip"
 $checksumPath = Join-Path $distPath "deck-$Version-windows-amd64.sha256"
 $resourceBase = 'rsrc_deck_' + [Guid]::NewGuid().ToString('N')

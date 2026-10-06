@@ -58,6 +58,11 @@ func Run(version string) error {
 	}
 	h := newHost(version, false)
 	h.init(homeDir())
+	if enabled := h.store.Prefs().OpenAtLogin; enabled != nil && h.startup.Enabled() != *enabled {
+		if _, err := h.startup.Set(*enabled); err != nil {
+			h.pushNotice(JobResult{Success: false, Message: err.Error()})
+		}
+	}
 
 	var app *application.App
 	var window *application.WebviewWindow
@@ -67,7 +72,7 @@ func Run(version string) error {
 
 	app = application.New(application.Options{
 		Name:        appdir.Name,
-		Description: "launch and re-skin AI coding desktop apps",
+		Description: appdir.Name,
 		Icon:        appIcon,
 		Assets: application.AssetOptions{
 			Handler: h.Handler(),
@@ -87,6 +92,9 @@ func Run(version string) error {
 			},
 		},
 		OnShutdown: func() {
+			if err := h.store.Flush(); err != nil {
+				log.Printf("%s: %+v", appdir.Name, err)
+			}
 			h.rt.disposeConnections()
 		},
 		ErrorHandler: func(err error) {

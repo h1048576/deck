@@ -46,9 +46,25 @@ var sidebarLayouts = map[string]sidebarLayout{
 	},
 	"paseo": {
 		selector: `[data-testid="left-sidebar-resize-handle"]`,
-		scan: `for (const handle of document.querySelectorAll('[data-testid="left-sidebar-resize-handle"]')) {
-      const panel = handle.parentElement?.parentElement;
-      if (panel) panel.toggleAttribute(attribute, true);
+		scan: `const panels = new Set();
+    for (const handle of document.querySelectorAll('[data-testid="left-sidebar-resize-handle"]')) {
+      // React Native 的手势容器可能使用 display: contents，不能按固定父级层数定位。
+      for (let panel = handle.parentElement; panel; panel = panel.parentElement) {
+        const panelStyle = getComputedStyle(panel);
+        if (panelStyle.display === 'contents' || ['absolute', 'fixed'].includes(panelStyle.position)) continue;
+        let parent = panel.parentElement;
+        while (parent && getComputedStyle(parent).display === 'contents') parent = parent.parentElement;
+        if (!parent) continue;
+        const parentStyle = getComputedStyle(parent);
+        if (!['flex', 'inline-flex'].includes(parentStyle.display) || !parentStyle.flexDirection.startsWith('row')) continue;
+        panels.add(panel);
+        panel.toggleAttribute(attribute, panel.getAttribute('aria-hidden') !== 'true'
+          && panelStyle.display !== 'none' && panel.getClientRects().length > 0);
+        break;
+      }
+    }
+    for (const panel of document.querySelectorAll('[' + attribute + ']')) {
+      if (!panels.has(panel)) panel.removeAttribute(attribute);
     }`,
 	},
 }
@@ -113,7 +129,7 @@ func sidebarInjection(id string, sidebarWidth string) string {
       const relevant = node => node instanceof Element && (node.matches(selector) || !!node.querySelector(selector));
       const observer = new MutationObserver(records => {
         if (records.some(record => record.type === 'attributes'
-          ? record.target.matches(selector)
+          ? relevant(record.target)
           : [...record.addedNodes, ...record.removedNodes].some(relevant))) schedule();
       });
       observer.observe(document.documentElement, {subtree: true, childList: true, attributes: true,

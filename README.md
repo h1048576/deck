@@ -9,7 +9,7 @@ deck 是一个 Windows 桌面工具，用于集中启动 AI 编程应用、调�
 运行环境：Windows 10 或更高版本（x64），并安装 WebView2 运行时。
 
 1. 解压 `deck-0.0.1-windows-amd64.zip`。
-2. 双击 `deck-windows-amd64.exe` 启动。
+2. 双击 `deck.exe` 启动。
 3. 在对应应用页面检查安装路径；如果自动检测失败，可手动选择应用的 `.exe` 文件。
 4. 调整布局和字体后，通过 deck 启动或重启应用，使界面设置生效。
 
@@ -81,7 +81,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build\build-windows.ps
 
 | 文件 | 说明 |
 | --- | --- |
-| `deck-windows-amd64.exe` | Windows x64 可执行文件，版本为 `0.0.1` |
+| `deck.exe` | Windows x64 可执行文件，版本为 `0.0.1` |
 | `deck-0.0.1-windows-amd64.zip` | 包含可执行文件和 README 的免安装包 |
 | `deck-0.0.1-windows-amd64.sha256` | 可执行文件和 ZIP 包的 SHA-256 校验值 |
 
@@ -106,20 +106,20 @@ go build -tags nogui -o deck-serve.exe .
 查看版本：
 
 ```powershell
-.\dist\deck-windows-amd64.exe version
+.\dist\deck.exe version
 ```
 
 ## 数据位置
 
-默认配置目录为 `%APPDATA%\deck`：
+默认配置目录为 `%USERPROFILE%\.deck`：
 
 | 内容 | 路径 |
 | --- | --- |
-| 应用设置 | `%APPDATA%\deck\settings.json` |
-| 模型配置备份 | `%APPDATA%\deck\model-backups\` |
-| MCP 配置备份 | `%APPDATA%\deck\mcp-backups\` |
-| WebView2 用户数据 | `%APPDATA%\deck\webview2\` |
-| 内嵌辅助脚本 | `%APPDATA%\deck\scripts\` |
+| 应用设置 | `%USERPROFILE%\.deck\setting.json` |
+| 模型配置备份 | `%USERPROFILE%\.deck\model-backups\` |
+| MCP 配置备份 | `%USERPROFILE%\.deck\mcp-backups\` |
+| WebView2 用户数据 | `%USERPROFILE%\.deck\webview2\` |
+| 内嵌辅助脚本 | `%USERPROFILE%\.deck\scripts\` |
 
 可通过环境变量 `DECK_CONFIG_DIR` 指定独立配置目录，例如：
 
@@ -128,7 +128,9 @@ $env:DECK_CONFIG_DIR = 'D:\deck-data'
 .\deck.exe
 ```
 
-首次启动时，如果默认配置目录尚不存在，deck 会复制已有版本的设置和模型 / MCP 备份，原文件会保留。已有配置目录或指定了 `DECK_CONFIG_DIR` 时，不执行迁移。
+首次启动时，如果 `setting.json` 尚不存在，deck 会复制已有版本的设置和模型 / MCP 备份，原文件会保留。已有 `setting.json` 时不会覆盖；使用 `DECK_CONFIG_DIR` 时，也支持将该目录中的旧设置文件迁移为 `setting.json`。
+
+所有受管应用的界面配置，以及 deck 的主题、字体、字号、模式、Harness 折叠、开机启动、启动方式和菜单顺序，都保存在同一个 `setting.json` 中。
 
 AI 工具自身的指令、技能、模型和 MCP 配置仍位于各工具的用户目录；deck 的配置目录用于保存自身设置、备份和运行数据。
 

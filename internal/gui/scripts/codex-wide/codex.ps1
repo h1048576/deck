@@ -240,6 +240,7 @@ function Inject-WideUi(
     [int]$ContentFontWeight
 ) {
     $safeWidth = $ContentWidth.Replace("'", "")
+    if ($safeWidth -eq 'auto' -or $safeWidth -eq 'fit-content') { $safeWidth = '100%' }
     $safeFontFamily = $ContentFontFamily.Trim()
     $css = @"
 :root,
@@ -250,13 +251,20 @@ body * {
     font-weight: $ContentFontWeight !important;
 }
 
-[class*="--thread-content-max-width"] {
-    --thread-content-max-width: $safeWidth !important;
+:root {
+    --deck-codex-requested-width: $safeWidth;
+}
+
+[class*="--thread-content-max-width"],
+[class*="--thread-content-responsive-max-width"] {
+    --thread-content-max-width: min(100%, var(--deck-codex-requested-width-px, $safeWidth), max(0px, calc(var(--deck-codex-pane-width, 100vw) - 2 * var(--thread-body-inline-padding, 0px)))) !important;
+    --thread-content-responsive-max-width: var(--thread-content-max-width) !important;
 }
 "@
 
     # JavaScript string is JSON-encoded to avoid quote/escape problems.
     $cssJson = $css | ConvertTo-Json -Compress
+    $widthGuardSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'content-width.js') -Raw
     $script = @"
 (() => {
   const installSummaryAutoOpenGuard = () => {
@@ -339,6 +347,7 @@ body * {
       (document.head || document.documentElement).appendChild(style);
     }
     style.textContent = $cssJson;
+    $widthGuardSource
     if ($PreventSummary) installSummaryAutoOpenGuard();
     return true;
   };

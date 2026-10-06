@@ -179,8 +179,23 @@ func (h *host) buildRouter() *http.ServeMux {
 			writeError(rw, err)
 			return
 		}
+		previous := h.startup.Enabled()
 		enabled, err := h.startup.Set(body.Enabled)
-		writeResult(rw, enabled, err)
+		if err != nil {
+			writeError(rw, err)
+			return
+		}
+		if err := <-h.store.Update(func(current settings.Preferences) settings.Preferences {
+			current.OpenAtLogin = &enabled
+			return current
+		}); err != nil {
+			if _, rollbackErr := h.startup.Set(previous); rollbackErr != nil {
+				h.pushNotice(JobResult{Success: false, Message: rollbackErr.Error()})
+			}
+			writeError(rw, err)
+			return
+		}
+		writeJSON(rw, http.StatusOK, enabled)
 	})
 
 	mux.HandleFunc("GET /api/harness/inventory", func(rw http.ResponseWriter, r *http.Request) {
