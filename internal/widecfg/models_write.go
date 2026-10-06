@@ -244,7 +244,7 @@ func (m *ModelsManager) retarget(source sourceConfig, action string, requested s
 		BaseURL:     baseURL,
 	}
 	if value, ok := item.Get("reasoningEfforts"); ok {
-		fields.ReasoningEfforts = normalizeValue(value)
+		fields.ReasoningEfforts = jsonc.Plain(value)
 	}
 	next, err := m.model(source.harness, fields, old, nil)
 	if err != nil {
@@ -347,6 +347,7 @@ func (m *ModelsManager) Batch(change ModelBatchChange) (ModelBatchResult, error)
 						remaining = append(remaining, item)
 					}
 				}
+				entries = remaining
 				// 从后向前删除，保持后续索引有效，并保留其他模型的顺序和注释。
 				for i := len(matched) - 1; i >= 0; i-- {
 					index := matched[i]
@@ -378,6 +379,15 @@ func (m *ModelsManager) Batch(change ModelBatchChange) (ModelBatchResult, error)
 					changes = append(changes, &fileChange{source: source, file: file, entries: entries, index: &idx})
 				}
 				changed += len(matched)
+			}
+			if source.harness == "dsh" {
+				mirror := source
+				mirror.path = m.dshPath("web")
+				other, err := m.load(mirror)
+				if err != nil {
+					return err
+				}
+				changes = append(changes, &fileChange{source: mirror, file: other, entries: entries, replace: true})
 			}
 			if !harnessSeen[source.harness] {
 				harnessSeen[source.harness] = true

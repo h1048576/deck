@@ -1,8 +1,8 @@
 // Harness 页：AGENTS.md 同步、Skills、Models、MCPs。
-import { el, html, icon, SettingRow } from './controls.js'
+import { el, html, icon } from './controls.js'
 import { api, messageOf } from './api.js'
 import { agentsResource, skillsResource, modelsResource, mcpsResource, displayHarnessPath, emptyHarnesses } from './resources.js'
-import { ModelEditorDialog, McpEditorDialog, ModelBatchDialog, ModelDialog } from './dialogs.js'
+import { ModelEditorDialog, McpEditorDialog, ModelBatchDialog, ModelDialog, DEFAULT_MODEL_BASE_URL } from './dialogs.js'
 
 const MODEL_HARNESSES = ['claude', 'droid', 'dsh', 'pi', 'opencode']
 const MODEL_PATHS = { claude: '~/.claude/settings.json', droid: '~/.factory/settings.json', dsh: '~/.dsh/profiles/{desktop,web}/cordis.patch.yml', pi: '~/.pi/agent/models.json', opencode: '~/.config/opencode/opencode.json' }
@@ -15,13 +15,9 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   const state = {
     skillsOpen: true,
     expanded: {},
-    skillsExpandedAll: {},
-    modelsExpandedAll: {},
-    mcpsExpandedAll: {},
     modelsSectionOpen: true,
     mcpsSectionOpen: true,
     operation: null,
-    document: null,
     result: null,
     locked: false,
     modelsError: '',
@@ -31,6 +27,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     batch: null,
     modelPreview: null,
     mcpPreview: null,
+    agentsPreview: null,
     modelsExpanded: {},
     mcpsExpanded: {},
   }
@@ -39,6 +36,56 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   let skillsSnapshot = null
   let modelsSnapshot = null
   let mcpsSnapshot = null
+
+  const hasDialog = () => !!state.agentsPreview || !!state.modelEditor || !!state.mcpEditor || !!state.batch || !!state.modelPreview || !!state.mcpPreview
+
+  async function loadDialog(operation, dialogKey, errorKey, load, show) {
+    if (state.locked || isDisabled() || hasDialog()) return
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    onNotice('', false)
+    if (errorKey) state[errorKey] = ''
+    state.operation = operation
+    render()
+    try {
+      const data = await load()
+      state.operation = null
+      render()
+      if (container.isConnected && !isDisabled()) show(data, returnFocus)
+    } catch (error) {
+      state[dialogKey] = null
+      if (errorKey) state[errorKey] = messageOf(error)
+      onNotice(messageOf(error), true)
+    } finally {
+      state.operation = null
+      render()
+    }
+  }
+
+  async function commitDialog(action, resource, close, message) {
+    onNotice('', false)
+    onBusyChange(true)
+    try {
+      const result = await action()
+      resource.invalidate()
+      await resource.refresh(true)
+      close()
+      onNotice(typeof message === 'function' ? message(result) : message, false)
+    } finally {
+      onBusyChange(false)
+      render()
+    }
+  }
+
+  function showDocumentPreview(key, preview, { title, subtitle, closeLabel, returnFocus }) {
+    let dialogRef = null
+    const close = () => { dialogRef?.cleanup(); state[key] = null; render() }
+    state[key] = preview
+    dialogRef = ModelDialog({
+      title, subtitle, disabled: false, returnFocus, onCancel: close,
+      closeLabel, className: 'model-config-preview',
+      content: buildPreviewContent(preview.paths, preview.content, close),
+    })
+  }
 
   const subscribe = (resource, setter) => resource.subscribe(snapshot => { setter(snapshot); render() })
   subscribe(agentsResource, next => { agentsSnapshot = next })
@@ -53,10 +100,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       modelsResource.invalidate()
       mcpsResource.invalidate()
     }
-    void agentsResource.refresh(true)
-    void skillsResource.refresh(true)
-    void modelsResource.refresh(true)
-    void mcpsResource.refresh(true)
+    return Promise.all([agentsResource.refresh(true), skillsResource.refresh(true), modelsResource.refresh(true), mcpsResource.refresh(true)])
   }
 
   function refreshSkills(invalidate = true) {
@@ -70,7 +114,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     const target = id === 'claude' ? 'agents' : 'claude'
     const name = skillId ? `技能 ${skillId}` : `${id === 'claude' ? 'Claude' : 'Agents'} 的全部 ${count} 个技能`
     const wrap = el('div', 'harness-actions')
-    const locked = state.locked
+    const locked = state.locked || hasDialog()
     if (id === 'claude' || id === 'agents') {
       const sync = el('button', 'button secondary harness-action')
       sync.innerHTML = `${state.operation === `sync:${scope}` ? icon('refreshCw', 14) + '' : icon('copy', 14)}<span>同步${target}</span>`
@@ -97,7 +141,8 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   }
 
   async function run(key, action, options = {}) {
-    if (state.locked || isDisabled()) return
+    if (state.locked || isDisabled() || hasDialog()) return
+    onNotice('', false)
     state.operation = key
     state.result = null
     state.locked = true
@@ -111,7 +156,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       state.result = { success: false, completed: 0, failed: 1, message: messageOf(error) }
       onNotice(messageOf(error), true)
     } finally {
-      if (options.scope === 'all') refreshAll()
+      if (options.scope === 'all') await refreshAll()
       else { await refreshSkills(); void modelsResource.refresh(true); void mcpsResource.refresh(true) }
       state.operation = null
       state.locked = false
@@ -183,14 +228,14 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     docRow.appendChild(labelWrap)
     const docActions = el('div', 'harness-actions')
     const previewButton = el('button', 'button secondary')
-    previewButton.innerHTML = `${state.previewingAgents ? icon('refreshCw', 14) : icon('eye', 14)}<span>预览</span>`
-    previewButton.disabled = state.locked || state.previewingAgents || !agents.exists
+    previewButton.innerHTML = `${state.operation === 'agents-preview' ? icon('refreshCw', 14) : icon('eye', 14)}<span>预览</span>`
+    previewButton.disabled = state.locked || hasDialog() || !agents.exists
     previewButton.addEventListener('click', () => { void previewAgents() })
     const syncButton = el('button', 'button primary')
     syncButton.innerHTML = `${state.operation === 'agents' ? icon('refreshCw', 14) : icon('copy', 14)}<span>同步</span>`
-    syncButton.disabled = state.locked || !agents.exists
+    syncButton.disabled = state.locked || hasDialog() || !agents.exists
     syncButton.addEventListener('click', () => {
-      void run('agents', () => api('harness/sync-agents'), { scope: 'all' })
+      void run('agents', () => api('harness/sync-agents', {}), { scope: 'all' })
     })
     docActions.appendChild(previewButton)
     docActions.appendChild(syncButton)
@@ -300,59 +345,11 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   }
 
   async function previewAgents() {
-    if (state.previewingAgents) return
-    state.previewingAgents = true
-    render()
-    try {
-      const document = await api('harness/agents-preview')
-      showAgentsPreview(document)
-    } catch (error) {
-      onNotice(messageOf(error), true)
-    } finally {
-      state.previewingAgents = false
-      render()
-    }
-  }
-
-  // AGENTS.md 预览弹窗。
-  function showAgentsPreview(preview) {
-    const backdrop = el('div', 'harness-preview-backdrop')
-    const dialog = el('section', 'harness-preview')
-    dialog.setAttribute('role', 'dialog')
-    dialog.setAttribute('aria-modal', 'true')
-    dialog.setAttribute('aria-labelledby', 'harness-preview-title')
-    dialog.setAttribute('aria-describedby', 'harness-preview-path')
-    const header = el('header')
-    const headLeft = el('div')
-    const title = el('h2', '', 'AGENTS.md 预览')
-    title.id = 'harness-preview-title'
-    headLeft.appendChild(title)
-    const path = el('p', '', displayHarnessPath(preview.path))
-    path.id = 'harness-preview-path'
-    headLeft.appendChild(path)
-    header.appendChild(headLeft)
-    const close = el('button', 'icon-button')
-    close.setAttribute('aria-label', '关闭预览')
-    close.innerHTML = icon('x', 18)
-    const dismiss = () => {
-      document.removeEventListener('keydown', onKey, true)
-      backdrop.remove()
-    }
-    close.addEventListener('click', dismiss)
-    header.appendChild(close)
-    dialog.appendChild(header)
-    const pre = el('pre')
-    pre.textContent = preview.content || '（空文件）'
-    dialog.appendChild(pre)
-    backdrop.appendChild(dialog)
-    backdrop.addEventListener('mousedown', event => { if (event.target === event.currentTarget) dismiss() })
-    function onKey(event) {
-      if (event.key === 'Escape') { event.preventDefault(); dismiss() }
-      if (event.key === 'Tab') { event.preventDefault(); close.focus() }
-    }
-    document.addEventListener('keydown', onKey, true)
-    document.getElementById('overlays').appendChild(backdrop)
-    close.focus()
+    await loadDialog('agents-preview', 'agentsPreview', null, () => api('harness/agents-preview'), (preview, returnFocus) => {
+      showDocumentPreview('agentsPreview', { paths: [preview.path], content: preview.content }, {
+        title: 'AGENTS.md 预览', subtitle: displayHarnessPath(preview.path), closeLabel: '关闭预览', returnFocus,
+      })
+    })
   }
 
   // ---- Models ----
@@ -361,7 +358,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     const inventory = modelsSnapshot ? modelsSnapshot.data : { sources: [] }
     const loading = modelsSnapshot ? modelsSnapshot.loading : false
     const resourceError = modelsSnapshot ? modelsSnapshot.error : ''
-    const dialogOpen = !!state.modelEditor || !!state.batch || !!state.modelPreview
+    const dialogOpen = hasDialog()
     const locked = state.locked || loading || dialogOpen
     const allExpanded = state.modelsSectionOpen && MODEL_HARNESSES.every(harness => state.modelsExpanded[harness])
 
@@ -406,7 +403,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
           refresh.title = '刷新'
           refresh.disabled = locked
           refresh.innerHTML = icon('refreshCw', 15, 2, loading ? 'spin' : '')
-          refresh.addEventListener('click', () => { void modelsResource.refresh(true).then(() => { state.modelsError = '' }) })
+          refresh.addEventListener('click', () => { state.modelsError = ''; void modelsResource.refresh(true) })
           return refresh
         })(),
       ]))
@@ -460,6 +457,11 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       actions.appendChild(add)
       head.appendChild(actions)
       list.appendChild(head)
+      if (!isOpen) sources.filter(item => item.error).forEach(item => {
+        const error = el('p', 'field-error model-error', `${item.label}：${item.error}`)
+        error.setAttribute('role', 'alert')
+        list.appendChild(error)
+      })
       if (isOpen) {
         const modelList = el('div', 'harness-skill-list')
         modelList.id = `models-${harness}`
@@ -567,22 +569,27 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       if (items.every((model, i) => model.index === source.models[i].index)) return
       void reorderModels(source, items)
     }
-    const finish = event => {
-      if (!drag || drag.pointerId !== event.pointerId) return
+    const cancelDrag = () => {
       const current = drag
-      const target = current.active ? targetAt(event.clientX, event.clientY) : null
       drag = null
       list.classList.remove('model-list-dragging')
       row.classList.remove('model-drag-source')
       Array.from(list.querySelectorAll('[data-model-index]')).forEach(node => node.classList.remove('model-drop-after', 'model-drop-before'))
+      if (current && handle.hasPointerCapture(current.pointerId)) handle.releasePointerCapture(current.pointerId)
+    }
+    const finish = event => {
+      if (!drag || drag.pointerId !== event.pointerId) return
+      const current = drag
+      const target = current.active ? targetAt(event.clientX, event.clientY) : null
+      cancelDrag()
       if (target) reorder(current.index, target)
     }
     handle.addEventListener('pointerup', finish)
-    handle.addEventListener('pointercancel', () => { drag = null })
-    handle.addEventListener('lostpointercapture', () => { drag = null })
+    handle.addEventListener('pointercancel', cancelDrag)
+    handle.addEventListener('lostpointercapture', cancelDrag)
     handle.addEventListener('click', event => { if (blockClick) { event.preventDefault(); event.stopPropagation() } })
     handle.addEventListener('keydown', event => {
-      if (event.key === 'Escape') return
+      if (event.key === 'Escape' && drag) { event.preventDefault(); cancelDrag(); return }
       if (handle.disabled || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return
       event.preventDefault()
       const target = source.models[position + (event.key === 'ArrowUp' ? -1 : 1)]
@@ -591,33 +598,19 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   }
 
   async function openModelEditor(source, item, copying = false) {
-    const dialogOpen = !!state.modelEditor || !!state.modelPreview || !!state.batch
-    if (state.locked || dialogOpen || !source.editable) return
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    state.modelsError = ''
-    if (!item) {
-      const detail = { fields: { model: '', name: '' } }
-      if (source.harness === 'droid') { detail.fields.provider = 'generic-chat-completion-api'; detail.fields.baseUrl = DEFAULT_MODEL_BASE_URL }
-      if (source.harness === 'dsh') { detail.fields.baseUrl = source.baseUrl ?? DEFAULT_MODEL_BASE_URL; detail.fields.reasoningEfforts = { xhigh: 'high' } }
-      if (source.harness === 'pi' || source.harness === 'opencode') { detail.fields.baseUrl = source.baseUrl ?? DEFAULT_MODEL_BASE_URL }
-      state.modelEditor = { source, returnFocus, detail }
-      openModelEditorDialog()
-      return
-    }
-    const target = { sourceId: source.id, index: item.index, revision: item.revision }
-    state.operation = `${copying ? 'copy' : 'edit'}:${source.id}:${item.index}`
-    render()
-    try {
-      const detail = await api('models/detail', target)
+    if (!source.editable) return
+    const target = item ? { sourceId: source.id, index: item.index, revision: item.revision } : null
+    await loadDialog(`${copying ? 'copy' : item ? 'edit' : 'add'}:${source.id}:${item?.index ?? ''}`, 'modelEditor', 'modelsError', async () => {
+      if (target) return api('models/detail', target)
+      const detail = { fields: { model: '', name: '', description: '' } }
+      if (source.harness !== 'claude') detail.fields.baseUrl = source.baseUrl ?? DEFAULT_MODEL_BASE_URL
+      if (source.harness === 'droid') detail.fields.provider = 'generic-chat-completion-api'
+      if (source.harness === 'dsh') detail.fields.reasoningEfforts = { xhigh: 'high' }
+      return detail
+    }, (detail, returnFocus) => {
       state.modelEditor = { source, ...(copying ? { copyFrom: target } : { target }), detail, returnFocus }
       openModelEditorDialog()
-    } catch (error) {
-      await modelsResource.refresh(true)
-      state.modelsError = messageOf(error)
-    } finally {
-      state.operation = ''
-      render()
-    }
+    })
   }
 
   function openModelEditorDialog() {
@@ -628,16 +621,15 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       editor,
       disabled: state.locked,
       onCancel: close,
-      onSubmit: async (fields, apiKey) => {
-        await api('models/save', { sourceId: editor.source.id, target: editor.target, copyFrom: editor.copyFrom, fields, apiKey })
-        await modelsResource.refresh(true)
-        close()
-      },
+      onSubmit: (fields, apiKey) => commitDialog(
+        () => api('models/save', { sourceId: editor.source.id, target: editor.target, copyFrom: editor.copyFrom, fields, apiKey }),
+        modelsResource, close, '模型配置已保存',
+      ),
     })
   }
 
   async function removeModel(source, item) {
-    const dialogOpen = !!state.modelEditor || !!state.modelPreview || !!state.batch
+    const dialogOpen = hasDialog()
     if (state.locked || dialogOpen) return
     state.operation = `delete:${source.id}:${item.index}`
     state.modelsError = ''
@@ -645,9 +637,12 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     render()
     try {
       await api('models/delete', { sourceId: source.id, index: item.index, revision: item.revision })
+      modelsResource.invalidate()
       await modelsResource.refresh(true)
+      onNotice('模型已删除', false)
     } catch (error) {
       state.modelsError = messageOf(error)
+      onNotice(messageOf(error), true)
     } finally {
       state.operation = ''
       onBusyChange(false)
@@ -656,7 +651,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   }
 
   async function reorderModels(source, items) {
-    const dialogOpen = !!state.modelEditor || !!state.modelPreview || !!state.batch
+    const dialogOpen = hasDialog()
     if (state.locked || dialogOpen) return
     state.operation = 'reorder'
     state.modelsError = ''
@@ -669,16 +664,17 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       failure = messageOf(error)
       modelsResource.update(current => ({ sources: current.sources.map(item => item.id === source.id ? source : item) }))
     } finally {
+      modelsResource.invalidate()
       await modelsResource.refresh(true)
       state.operation = ''
-      if (failure) state.modelsError = failure
+      if (failure) { state.modelsError = failure; onNotice(failure, true) }
       onBusyChange(false)
       render()
     }
   }
 
   function openBatch(action) {
-    const dialogOpen = !!state.modelEditor || !!state.modelPreview || !!state.batch
+    const dialogOpen = hasDialog()
     if (state.locked || dialogOpen) return
     state.modelsError = ''
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -690,62 +686,44 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       disabled: state.locked,
       returnFocus,
       onCancel: close,
-      onSubmit: async change => {
-        await api('models/batch', change)
-        await modelsResource.refresh(true)
-        close()
-      },
+      onSubmit: change => commitDialog(
+        () => api('models/batch', change), modelsResource, close,
+        result => `批量操作完成：修改 ${result.changed} 条模型，跳过 ${result.skipped} 个配置源`,
+      ),
     })
   }
 
   async function viewModels(harness, sources) {
-    const dialogOpen = !!state.modelEditor || !!state.modelPreview || !!state.batch
-    if (state.locked || dialogOpen) return
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    state.operation = `view:${harness}`
-    state.modelsError = ''
-    render()
-    try {
+    await loadDialog(`view:${harness}`, 'modelPreview', 'modelsError', async () => {
       const previewSources = harness === 'dsh' ? [sources.find(source => source.editable) ?? sources[0]] : sources
       const documents = await Promise.all(previewSources.map(source => api('models/preview', { sourceId: source.id })))
-      const document = {
-        paths: harness === 'dsh' ? [MODEL_PATHS.dsh] : [...new Set(documents.flatMap(item => item.paths))],
+      return {
+        paths: [...new Set(documents.flatMap(item => item.paths))],
         content: documents.map(item => item.content).join('\n\n'),
       }
-      state.modelPreview = { harness, document, returnFocus }
-      ModelDialog({
-        title: '查看模型配置', subtitle: harness, disabled: false, returnFocus,
-        onCancel: () => { state.modelPreview = null; render() },
-        className: 'model-config-preview',
-        content: buildPreviewContent(document.paths, document.content),
+    }, (preview, returnFocus) => {
+      showDocumentPreview('modelPreview', preview, {
+        title: '查看模型配置', subtitle: harness, closeLabel: '关闭模型弹窗', returnFocus,
       })
-    } catch (error) {
-      state.modelsError = messageOf(error)
-    } finally {
-      state.operation = ''
-      render()
-    }
+    })
   }
 
-  function buildPreviewContent(paths, content) {
-    const wrap = el('div')
+  function buildPreviewContent(paths, content, onClose) {
+    const wrap = el('div', 'model-preview-content')
     const pathList = el('div', 'model-preview-paths')
     paths.forEach(path => pathList.appendChild(el('p', '', displayHarnessPath(path))))
     wrap.appendChild(pathList)
     const pre = el('pre')
+    pre.setAttribute('role', 'region')
+    pre.setAttribute('aria-label', '配置预览内容')
     pre.tabIndex = 0
-    pre.textContent = content
+    pre.textContent = content || '（空文件）'
     wrap.appendChild(pre)
     const actions = el('div', 'harness-actions model-editor-actions')
     const ok = el('button', 'button primary')
+    ok.type = 'button'
     ok.textContent = '确定'
-    ok.addEventListener('click', () => {
-      const backdrop = document.querySelector('.model-modal-backdrop')
-      if (backdrop) backdrop.remove()
-      state.modelPreview = null
-      state.mcpPreview = null
-      render()
-    })
+    ok.addEventListener('click', onClose)
     actions.appendChild(ok)
     wrap.appendChild(actions)
     return wrap
@@ -757,7 +735,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     const inventory = mcpsSnapshot ? mcpsSnapshot.data : { sources: [] }
     const loading = mcpsSnapshot ? mcpsSnapshot.loading : false
     const resourceError = mcpsSnapshot ? mcpsSnapshot.error : ''
-    const dialogOpen = !!state.mcpEditor || !!state.mcpPreview
+    const dialogOpen = hasDialog()
     const locked = state.locked || loading || dialogOpen
     const allExpanded = state.mcpsSectionOpen && MCP_IDS.every(id => state.mcpsExpanded[id])
 
@@ -775,7 +753,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
           refresh.title = '刷新'
           refresh.disabled = locked
           refresh.innerHTML = icon('refreshCw', 15, 2, loading ? 'spin' : '')
-          refresh.addEventListener('click', () => { void mcpsResource.refresh(true).then(() => { state.mcpsError = '' }) })
+          refresh.addEventListener('click', () => { void refreshMcp() })
           return refresh
         })(),
       ]))
@@ -831,7 +809,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       refresh.title = '刷新'
       refresh.disabled = locked
       refresh.innerHTML = icon('refreshCw', 15)
-      refresh.addEventListener('click', () => { void refreshMcp(id) })
+      refresh.addEventListener('click', () => { void refreshMcp() })
       actions.appendChild(refresh)
       head.appendChild(actions)
       list.appendChild(head)
@@ -887,43 +865,27 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     root.appendChild(wrap)
   }
 
-  async function refreshMcp(id) {
-    await mcpsResource.refresh(true)
+  async function refreshMcp() {
     state.mcpsError = ''
+    mcpsResource.invalidate()
+    await mcpsResource.refresh(true)
     render()
   }
 
   async function openMcpEditor(source, item, copying = false) {
-    const dialogOpen = !!state.mcpEditor || !!state.mcpPreview
-    if (state.locked || dialogOpen || !source.editable) return
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    state.mcpsError = ''
-    if (!item) {
-      state.mcpEditor = {
-        source, returnFocus,
-        fields: { name: '', transport: 'stdio', command: '', args: [], env: {}, url: '', headers: {}, cwd: '', bearerTokenEnvVar: '', envHeaders: {} },
-      }
-      openMcpEditorDialog()
-      return
-    }
-    const target = { harness: source.harness, name: item.name, revision: item.revision }
-    state.operation = `${copying ? 'copy' : 'edit'}:${source.harness}:${item.name}`
-    render()
-    try {
-      const fields = await api('mcps/detail', target)
+    if (!source.editable) return
+    const target = item ? { harness: source.harness, name: item.name, revision: item.revision } : null
+    await loadDialog(`${copying ? 'copy' : item ? 'edit' : 'add'}:${source.harness}:${item?.name ?? ''}`, 'mcpEditor', 'mcpsError', async () => {
+      if (target) return api('mcps/detail', target)
+      return { name: '', transport: 'stdio', command: '', args: [], env: {}, url: '', headers: {}, cwd: '', bearerTokenEnvVar: '', envHeaders: {} }
+    }, (fields, returnFocus) => {
       state.mcpEditor = {
         source, returnFocus,
         fields: copying ? { ...fields, name: `${fields.name}-copy` } : fields,
         ...(copying ? { copyFrom: target } : { target }),
       }
       openMcpEditorDialog()
-    } catch (error) {
-      await mcpsResource.refresh(true)
-      state.mcpsError = messageOf(error)
-    } finally {
-      state.operation = ''
-      render()
-    }
+    })
   }
 
   function openMcpEditorDialog() {
@@ -934,16 +896,15 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       editor,
       disabled: state.locked,
       onCancel: close,
-      onSubmit: async fields => {
-        await api('mcps/save', { harness: editor.source.harness, target: editor.target, copyFrom: editor.copyFrom, fields })
-        await refreshMcp(editor.source.harness)
-        close()
-      },
+      onSubmit: fields => commitDialog(
+        () => api('mcps/save', { harness: editor.source.harness, target: editor.target, copyFrom: editor.copyFrom, fields }),
+        mcpsResource, close, 'MCP 配置已保存',
+      ),
     })
   }
 
   async function removeMcp(source, item) {
-    const dialogOpen = !!state.mcpEditor || !!state.mcpPreview
+    const dialogOpen = hasDialog()
     if (state.locked || dialogOpen) return
     state.operation = `delete:${source.harness}:${item.name}`
     state.mcpsError = ''
@@ -951,9 +912,11 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     render()
     try {
       await api('mcps/delete', { harness: source.harness, name: item.name, revision: item.revision })
-      await refreshMcp(source.harness)
+      await refreshMcp()
+      onNotice('MCP 已删除', false)
     } catch (error) {
       state.mcpsError = messageOf(error)
+      onNotice(messageOf(error), true)
     } finally {
       state.operation = ''
       onBusyChange(false)
@@ -962,28 +925,11 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   }
 
   async function viewMcp(source) {
-    const dialogOpen = !!state.mcpEditor || !!state.mcpPreview
-    if (state.locked || dialogOpen) return
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    state.operation = `view:${source.harness}`
-    state.mcpsError = ''
-    render()
-    try {
-      const document = await api('mcps/preview', { harness: source.harness })
-      state.mcpPreview = { harness: source.harness, document, returnFocus }
-      ModelDialog({
-        title: '查看 MCP 配置', subtitle: source.harness, disabled: false, returnFocus,
-        onCancel: () => { state.mcpPreview = null; render() },
-        closeLabel: '关闭 MCP 预览',
-        className: 'model-config-preview',
-        content: buildPreviewContent([document.path], document.content),
+    await loadDialog(`view:${source.harness}`, 'mcpPreview', 'mcpsError', () => api('mcps/preview', { harness: source.harness }), (preview, returnFocus) => {
+      showDocumentPreview('mcpPreview', { paths: [preview.path], content: preview.content }, {
+        title: '查看 MCP 配置', subtitle: source.harness, closeLabel: '关闭 MCP 预览', returnFocus,
       })
-    } catch (error) {
-      state.mcpsError = messageOf(error)
-    } finally {
-      state.operation = ''
-      render()
-    }
+    })
   }
 
   function setInitialCollapse(harnessSettings) {

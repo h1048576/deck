@@ -1,12 +1,13 @@
 // 弹窗组件：通用模态、模型编辑器、MCP 编辑器、批量模型。
-import { el, html, icon, SettingRow, SelectControl, EditableSelectControl } from './controls.js'
+import { el, html, icon, SettingRow, SelectControl, EditableSelectControl, closeDropdowns } from './controls.js'
 import { api, messageOf } from './api.js'
 
-const DEFAULT_MODEL_BASE_URL = 'http://127.0.0.1:20128'
+export const DEFAULT_MODEL_BASE_URL = 'http://127.0.0.1:20128'
 const API_OPTIONS = [DEFAULT_MODEL_BASE_URL, `${DEFAULT_MODEL_BASE_URL}/v1`].map(value => ({ value, label: value }))
 
 // 通用模态：焦点圈闭、Escape/Tab 处理、关闭后归还焦点。
 export function ModelDialog({ title, subtitle, disabled, returnFocus, onCancel, className = '', closeLabel = '关闭模型弹窗', descriptionId = 'model-modal-source', content }) {
+  closeDropdowns()
   const backdrop = el('div', 'model-modal-backdrop')
   const dialog = el('section', `model-modal ${className}`)
   dialog.setAttribute('role', 'dialog')
@@ -45,6 +46,7 @@ export function ModelDialog({ title, subtitle, disabled, returnFocus, onCancel, 
   const cleanup = () => {
     if (closed) return
     closed = true
+    closeDropdowns()
     window.removeEventListener('keydown', onKey, true)
     if (root) root.inert = previouslyInert
     backdrop.remove()
@@ -55,6 +57,7 @@ export function ModelDialog({ title, subtitle, disabled, returnFocus, onCancel, 
   function onKey(event) {
     if (event.key === 'Escape' && !event.isComposing && !disabled) {
       event.preventDefault()
+      if (closeDropdowns()) { event.stopPropagation(); return }
       handleCancel()
       return
     }
@@ -73,7 +76,34 @@ export function ModelDialog({ title, subtitle, disabled, returnFocus, onCancel, 
   backdrop.addEventListener('mousedown', event => {
     if (event.target === event.currentTarget && !disabled) handleCancel()
   })
-  return { cleanup, dialog, setDisabled(next) { disabled = next } }
+  return { cleanup, dialog, setDisabled(next) { disabled = next; close.disabled = next } }
+}
+
+// 保存期间统一禁用表单和关闭入口，失败后恢复输入，保留填写的内容。
+function bindDialogSubmit(form, dialog, submit, errorNode, disabled, task) {
+  let submitting = false
+  form.addEventListener('submit', async event => {
+    event.preventDefault()
+    if (disabled || submitting) return
+    submitting = true
+    errorNode.textContent = ''
+    closeDropdowns()
+    const controls = [...form.querySelectorAll('input, button, textarea, select')]
+    const previous = controls.map(control => control.disabled)
+    controls.forEach(control => { control.disabled = true })
+    dialog.setDisabled(true)
+    submit.textContent = '保存中…'
+    try {
+      await task()
+    } catch (error) {
+      errorNode.textContent = messageOf(error)
+    } finally {
+      controls.forEach((control, index) => { control.disabled = previous[index] })
+      dialog.setDisabled(disabled)
+      submit.textContent = '确定'
+      submitting = false
+    }
+  })
 }
 
 // 模型编辑器（修改/复制/新增）。
@@ -248,37 +278,28 @@ export function ModelEditorDialog({ editor, disabled, onCancel, onSubmit }) {
   form.appendChild(fieldsWrap)
   form.appendChild(actions)
 
-  let submitting = false
-  form.addEventListener('submit', event => {
-    event.preventDefault()
-    if (disabled || submitting) return
+  const dialog = ModelDialog({ title, subtitle: harness, disabled, returnFocus: editor.returnFocus, onCancel, content: form })
+  bindDialogSubmit(form, dialog, submit, errorNode, disabled, async () => {
     let next = fields
     if (harness === 'dsh') {
       const entries = reasoningRows.filter(item => item.key.trim() || item.value)
       if (entries.some(item => !item.key.trim() || ['__proto__', 'constructor', 'prototype'].includes(item.key.trim()))) {
-        errorNode.textContent = '请填写有效的思考级别 key'
-        return
+        throw new Error('请填写有效的思考级别 key')
       }
       if (new Set(entries.map(item => item.key.trim())).size !== entries.length) {
-        errorNode.textContent = '思考级别的 key 不能重复'
-        return
+        throw new Error('思考级别的 key 不能重复')
       }
       next = { ...fields, reasoningEfforts: entries.length ? Object.fromEntries(entries.map(item => [item.key.trim(), item.value])) : (fields.reasoningEfforts === false ? false : undefined) }
     }
-    submitting = true
-    errorNode.textContent = ''
-    onSubmit(next, harness === 'droid' ? apiKey.value : undefined)
-      .catch(error => { errorNode.textContent = messageOf(error) })
-      .finally(() => { submitting = false })
+    await onSubmit(next, harness === 'droid' ? apiKey.value : undefined)
   })
 
-  const dialog = ModelDialog({ title, subtitle: harness, disabled, returnFocus: editor.returnFocus, onCancel, content: form })
   return { cleanup: dialog.cleanup }
 }
 
 // MCP 编辑器。
 export function McpEditorDialog({ editor, disabled, onCancel, onSubmit }) {
-  const fields = { ...editor.fields, args: [...editor.fields.args], env: { ...editor.fields.env }, headers: { ...editor.fields.headers }, envHeaders: { ...editor.fields.envHeaders } }
+  const fields = { ...editor.fields, args: [...(editor.fields.args ?? [])], env: { ...editor.fields.env }, headers: { ...editor.fields.headers }, envHeaders: { ...editor.fields.envHeaders } }
   const harness = editor.source.harness
   const prefix = `mcp-editor-${harness}`
   const title = editor.target ? '修改 MCP' : editor.copyFrom ? '复制 MCP' : '新增 MCP'
@@ -317,8 +338,8 @@ export function McpEditorDialog({ editor, disabled, onCancel, onSubmit }) {
   })
   fieldsWrap.appendChild(SettingRow('传输方式', `${prefix}-transport`, null, transportSelect.node))
 
-  const stdioSection = el('div')
-  const httpSection = el('div')
+  const stdioSection = el('fieldset', 'mcp-transport-fields')
+  const httpSection = el('fieldset', 'mcp-transport-fields')
   stdioSection.appendChild(textInput('command', '启动命令', true))
   if (harness === 'codex') stdioSection.appendChild(textInput('cwd', '工作目录'))
   stdioSection.appendChild(buildArgsSection())
@@ -366,6 +387,7 @@ export function McpEditorDialog({ editor, disabled, onCancel, onSubmit }) {
     head.appendChild(add)
     section.appendChild(head)
     renderRows()
+    section.appendChild(rows)
     return section
   }
 
@@ -420,12 +442,15 @@ export function McpEditorDialog({ editor, disabled, onCancel, onSubmit }) {
     head.appendChild(add)
     section.appendChild(head)
     renderRows()
+    section.appendChild(rows)
     return section
   }
 
   function renderTransportSections() {
     stdioSection.hidden = fields.transport !== 'stdio'
+    stdioSection.disabled = disabled || fields.transport !== 'stdio'
     httpSection.hidden = fields.transport === 'stdio'
+    httpSection.disabled = disabled || fields.transport === 'stdio'
   }
   renderTransportSections()
 
@@ -453,27 +478,17 @@ export function McpEditorDialog({ editor, disabled, onCancel, onSubmit }) {
   function pairsMap(pairs, label) {
     const entries = pairs.filter(item => item.key || item.value)
     if (entries.some(item => !item.key.trim())) throw new Error(`请填写${label}的名称`)
-    if (new Set(entries.map(item => item.key)).size !== entries.length) throw new Error(`${label}的名称不能重复`)
-    return Object.fromEntries(entries.map(item => [item.key, item.value]))
+    if (new Set(entries.map(item => item.key.trim())).size !== entries.length) throw new Error(`${label}的名称不能重复`)
+    return Object.fromEntries(entries.map(item => [item.key.trim(), item.value]))
   }
 
-  let submitting = false
-  form.addEventListener('submit', event => {
-    event.preventDefault()
-    if (disabled || submitting) return
-    let next
-    try {
-      next = { ...fields, env: pairsMap(envPairs.list, '环境变量'), headers: pairsMap(headerPairs.list, '请求头'), envHeaders: pairsMap(envHeaderPairs.list, '请求头环境变量') }
-    } catch (error) {
-      errorNode.textContent = messageOf(error)
-      return
-    }
-    submitting = true
-    errorNode.textContent = ''
-    onSubmit(next).catch(error => { errorNode.textContent = messageOf(error) }).finally(() => { submitting = false })
+  const dialog = ModelDialog({ title, subtitle: harness, disabled, returnFocus: editor.returnFocus, onCancel, closeLabel: '关闭 MCP 弹窗', className: 'mcp-modal', content: form })
+  bindDialogSubmit(form, dialog, submit, errorNode, disabled, async () => {
+    const stdio = fields.transport === 'stdio'
+    const next = { ...fields, env: stdio ? pairsMap(envPairs.list, '环境变量') : {}, headers: stdio ? {} : pairsMap(headerPairs.list, '请求头'), envHeaders: stdio ? {} : pairsMap(envHeaderPairs.list, '请求头环境变量') }
+    await onSubmit(next)
   })
 
-  const dialog = ModelDialog({ title, subtitle: harness, disabled, returnFocus: editor.returnFocus, onCancel, closeLabel: '关闭 MCP 弹窗', className: 'mcp-modal', content: form })
   return { cleanup: dialog.cleanup }
 }
 
@@ -519,18 +534,11 @@ export function ModelBatchDialog({ action, disabled, returnFocus, onCancel, onSu
   form.appendChild(fieldsWrap)
   form.appendChild(actions)
 
-  let submitting = false
-  form.addEventListener('submit', event => {
-    event.preventDefault()
-    if (disabled || submitting) return
-    submitting = true
-    errorNode.textContent = ''
-    onSubmit({ action, model: model.value, ...(action === 'replace' ? { originalModel: originalModel.value } : {}) })
-      .catch(error => { errorNode.textContent = messageOf(error) })
-      .finally(() => { submitting = false })
+  const dialog = ModelDialog({ title, subtitle: 'Models', disabled, returnFocus, onCancel, content: form })
+  bindDialogSubmit(form, dialog, submit, errorNode, disabled, async () => {
+    await onSubmit({ action, model: model.value, ...(action === 'replace' ? { originalModel: originalModel.value } : {}) })
   })
 
-  const dialog = ModelDialog({ title, subtitle: 'Models', disabled, returnFocus, onCancel, content: form })
   return { cleanup: dialog.cleanup }
 }
 

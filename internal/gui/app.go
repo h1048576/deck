@@ -102,7 +102,9 @@ func Run(version string) error {
 		Hidden:           true,
 		BackgroundColour: themeRGBA(h.store.Prefs().Theme),
 		Windows: application.WindowsWindow{
-			Theme: application.SystemDefault,
+			Theme:                      application.SystemDefault,
+			NonClientRegionSupport:     true,
+			WebView2CompositionHosting: true,
 		},
 	})
 	desktopHost.attach(app, window)

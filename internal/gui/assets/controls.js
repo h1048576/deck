@@ -21,6 +21,13 @@ export function html(tag, className, markup) {
 }
 
 // ---- 下拉菜单（SelectControl / EditableSelectControl / FontControl）----
+const openDropdowns = new Set()
+
+export function closeDropdowns() {
+  const count = openDropdowns.size
+  for (const close of [...openDropdowns]) close()
+  return count
+}
 
 function useDropdown(options, value, disabled, onChange) {
   const state = { open: false, active: -1, menu: null, anchor: null, options, value, disabled, onChange }
@@ -28,7 +35,7 @@ function useDropdown(options, value, disabled, onChange) {
 
   function show(last = false) {
     if (state.disabled) return
-    const selected = options.findIndex(option => option.value === value && !option.disabled)
+    const selected = options.findIndex(option => option.value === state.value && !option.disabled)
     const list = enabled()
     state.active = selected >= 0 ? selected : (last ? list[list.length - 1] : list[0]) ?? -1
     open()
@@ -37,8 +44,9 @@ function useDropdown(options, value, disabled, onChange) {
   function choose(index) {
     const option = options[index]
     if (state.disabled || !option || option.disabled) return
+    state.value = option.value
     close()
-    onChange(option.value)
+    state.onChange(option.value)
     const focusable = state.anchor && state.anchor.querySelector('input, button')
     if (focusable) focusable.focus()
   }
@@ -96,6 +104,10 @@ function useDropdown(options, value, disabled, onChange) {
   function open() {
     if (state.open) return
     state.open = true
+    openDropdowns.add(close)
+    const trigger = state.anchor.querySelector('[role="combobox"]')
+    trigger?.setAttribute('aria-expanded', 'true')
+    trigger?.setAttribute('aria-controls', state.id + '-options')
     const menu = el('div', 'dropdown-menu')
     menu.id = state.id + '-options'
     menu.setAttribute('role', 'listbox')
@@ -131,11 +143,13 @@ function useDropdown(options, value, disabled, onChange) {
       const item = el('div', `dropdown-option ${index === state.active ? 'active' : ''} ${option.disabled ? 'disabled' : ''}`)
       item.id = `${state.id}-option-${index}`
       item.setAttribute('role', 'option')
-      item.setAttribute('aria-selected', option.value === value ? 'true' : 'false')
+      item.setAttribute('aria-selected', option.value === state.value ? 'true' : 'false')
       if (option.disabled) item.setAttribute('aria-disabled', 'true')
-      const label = el('span', '', option.label)
+      const label = el('span', 'dropdown-option-label', option.label)
       item.appendChild(label)
-      if (option.value === value) item.appendChild(html('span', '', icon('check', 16)))
+      const check = html('span', 'dropdown-option-check', option.value === state.value ? icon('check', 16) : '')
+      check.setAttribute('aria-hidden', 'true')
+      item.appendChild(check)
       item.addEventListener('pointermove', () => { if (!option.disabled) { state.active = index; updateActive() } })
       item.addEventListener('pointerdown', event => event.preventDefault())
       item.addEventListener('click', () => choose(index))
@@ -155,6 +169,8 @@ function useDropdown(options, value, disabled, onChange) {
   function close() {
     if (!state.open) return
     state.open = false
+    openDropdowns.delete(close)
+    state.anchor.querySelector('[role="combobox"]')?.setAttribute('aria-expanded', 'false')
     if (state.cleanup) { state.cleanup(); state.cleanup = null }
     if (state.menu) { state.menu.remove(); state.menu = null }
   }
@@ -191,6 +207,7 @@ export function SelectControl({ id, label, value, disabled = false, onChange, op
       dropdown.setDisabled(nextDisabled)
     }
   }
+  dropdown.state.onChange = nextValue => { update(nextValue); onChange(nextValue) }
   return { node: anchor, update }
 }
 
@@ -210,7 +227,7 @@ export function EditableSelectControl({ id, label, value, disabled = false, opti
   input.autocomplete = 'off'
   input.spellcheck = false
   input.disabled = disabled
-  input.addEventListener('input', () => onChange(input.value))
+  input.addEventListener('input', () => { dropdown.state.value = input.value; onChange(input.value) })
   input.addEventListener('keydown', event => dropdown.onKeyDown(event, true))
   const button = el('button', 'font-dropdown-button')
   button.type = 'button'
@@ -235,6 +252,7 @@ export function EditableSelectControl({ id, label, value, disabled = false, opti
       dropdown.setDisabled(nextDisabled)
     }
   }
+  dropdown.state.onChange = nextValue => { update(nextValue); onChange(nextValue) }
   return { node: anchor, update }
 }
 
@@ -260,7 +278,7 @@ export function FontControl({ id, value, disabled, error, onChange, systemOption
   input.spellcheck = false
   input.disabled = disabled
   if (error) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', `${id}-error`) }
-  input.addEventListener('input', () => onChange(input.value))
+  input.addEventListener('input', () => { dropdown.state.value = input.value; onChange(input.value) })
   input.addEventListener('keydown', event => dropdown.onKeyDown(event, true))
   const button = el('button', 'font-dropdown-button')
   button.type = 'button'
@@ -284,6 +302,7 @@ export function FontControl({ id, value, disabled, error, onChange, systemOption
       dropdown.setDisabled(nextDisabled)
     }
   }
+  dropdown.state.onChange = nextValue => { update(nextValue); onChange(nextValue) }
   return { node: anchor, update }
 }
 

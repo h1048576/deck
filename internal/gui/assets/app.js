@@ -153,8 +153,10 @@ let harnessPage = null
 function renderBrandBar() {
   const bar = shell.brandBar
   bar.textContent = ''
-  bar.appendChild(html('span', '', icon('maximize2', 22)))
-  if (!state.collapsed) bar.appendChild(el('span', '', 'wide-pure'))
+  const caption = el('div', 'brand-caption')
+  caption.appendChild(html('span', '', icon('maximize2', 22)))
+  if (!state.collapsed) caption.appendChild(el('span', '', 'wide-pure'))
+  bar.appendChild(caption)
   const toggle = el('button', 'icon-button collapse-toggle')
   toggle.title = state.collapsed ? '展开菜单' : '收起菜单'
   toggle.setAttribute('aria-label', state.collapsed ? '展开菜单' : '收起菜单')
@@ -248,11 +250,11 @@ function renderTitlebar() {
   const right = el('div', 'titlebar-right')
   if (state.platform !== 'darwin') {
     const controls = el('div', 'window-controls')
-    const minimize = el('button')
+    const minimize = el('button', 'window-minimize')
     minimize.setAttribute('aria-label', '最小化')
     minimize.innerHTML = icon('minus', 15)
     minimize.addEventListener('click', () => { void windowAction('minimize') })
-    const maximize = el('button')
+    const maximize = el('button', 'window-maximize')
     maximize.setAttribute('aria-label', state.windowMaximized ? '还原' : '最大化')
     maximize.title = state.windowMaximized ? '还原' : '最大化'
     maximize.innerHTML = windowMaximizeIcon(state.windowMaximized)
@@ -355,7 +357,7 @@ function renderPage() {
     if (!harnessPage) {
       harnessPage = createHarnessPage({
         onBusyChange: value => { state.busy = value ? { id: 'harness', action: 'manage' } : null; renderShell() },
-        onNotice: (text, error) => { state.notice = { text, error }; renderToast() },
+        onNotice: (text, error) => { state.notice = text ? { text, error } : null; renderToast() },
         isDisabled: () => !!state.busy || !state.ready || !!state.bootError,
       })
       harnessPage.setInitialCollapse(state.harnessSettings)
@@ -1123,6 +1125,8 @@ async function bootstrap() {
   try {
     const data = await api('bootstrap')
     state.desktop = data.desktop
+    // 桌面标记来自后端；在读取完成后加载原生标题栏、拖动与缩放运行时。
+    if (state.desktop) await import('/wails/runtime.js')
     state.platform = data.platform
     state.version = data.version
     state.applications = { ...DEFAULT_APPLICATIONS, ...data.preferences.applications }
@@ -1222,10 +1226,5 @@ setInterval(async () => {
     }
   } catch { /* 忽略 */ }
 }, 400)
-
-// 拖拽运行时（frameless 窗口拖动）。
-if (state.desktop) {
-  import('/wails/runtime.js').catch(() => null)
-}
 
 void bootstrap()

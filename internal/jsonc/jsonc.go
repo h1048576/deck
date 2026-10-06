@@ -573,7 +573,7 @@ func (d *Doc) insertMember(parent *node, key string, value any, f Format) string
 	valueText := formatValue(value, childIndent, f)
 	propText := quote(key) + ": " + valueText
 	insertAt, needsComma := d.lastSignificantBefore(closing)
-	if insertAt == parent.start+1 && strings.TrimSpace(d.text[parent.start+1:closing]) == "" && !strings.Contains(d.text[parent.start+1:closing], "\n") {
+	if insertAt == parent.start && strings.TrimSpace(d.text[parent.start+1:closing]) == "" && !strings.Contains(d.text[parent.start+1:closing], "\n") {
 		// Inline empty object: place the property on its own lines.
 		parentIndent := d.lineIndent(parent.start)
 		return d.text[:closing] + f.Eol + childIndent + propText + f.Eol + parentIndent + d.text[closing:]
@@ -592,7 +592,7 @@ func (d *Doc) insertElement(parent *node, value any, f Format) string {
 	childIndent := d.lineIndent(closing) + f.Unit
 	valueText := formatValue(value, childIndent, f)
 	insertAt, needsComma := d.lastSignificantBefore(closing)
-	if insertAt == parent.start+1 && strings.TrimSpace(d.text[parent.start+1:closing]) == "" && !strings.Contains(d.text[parent.start+1:closing], "\n") {
+	if insertAt == parent.start && strings.TrimSpace(d.text[parent.start+1:closing]) == "" && !strings.Contains(d.text[parent.start+1:closing], "\n") {
 		parentIndent := d.lineIndent(parent.start)
 		return d.text[:closing] + f.Eol + childIndent + valueText + f.Eol + parentIndent + d.text[closing:]
 	}
@@ -607,35 +607,40 @@ func (d *Doc) insertElement(parent *node, value any, f Format) string {
 // lastSignificantBefore finds the position of the last non-whitespace,
 // non-comment character strictly before end.
 func (d *Doc) lastSignificantBefore(end int) (int, bool) {
-	pos := end - 1
-	for pos >= 0 {
+	last := -1
+	for pos := 0; pos < end; {
 		ch := d.text[pos]
 		if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' {
-			pos--
+			pos++
 			continue
 		}
 		if ch == '/' {
-			// Possible comment ending here; scan back to its start.
-			commentStart := pos - 1
-			if commentStart >= 0 && d.text[commentStart] == '*' {
-				// block comment: find start
-				start := commentStart - 1
-				for start >= 1 {
-					if d.text[start] == '/' && d.text[start-1] == '*' {
-						start--
-						break
-					}
-					start--
-				}
-				// crude but sufficient for generated configs
-				pos = start - 1
+			if next := d.skipComment(pos); next >= 0 && next <= end {
+				pos = next
 				continue
 			}
-			return pos, ch == ','
 		}
-		return pos, ch == ','
+		last = pos
+		pos++
+		if ch == '"' {
+			for pos < end {
+				last = pos
+				if d.text[pos] == '\\' {
+					pos += 2
+					continue
+				}
+				pos++
+				if d.text[last] == '"' {
+					break
+				}
+			}
+		}
 	}
-	return -1, false
+	if last < 0 {
+		return -1, false
+	}
+	ch := d.text[last]
+	return last, ch != ',' && ch != '{' && ch != '['
 }
 
 // Canonical serializes a decoded value compactly with objects in their
@@ -955,6 +960,9 @@ func (p *parser) parseObject() (*node, error) {
 			}
 			continue
 		}
+		if p.pos >= len(p.text) || p.text[p.pos] != '}' {
+			return nil, fmt.Errorf("expected ',' or '}' at offset %d", p.pos)
+		}
 	}
 }
 
@@ -987,6 +995,9 @@ func (p *parser) parseArray() (*node, error) {
 				return out, nil
 			}
 			continue
+		}
+		if p.pos >= len(p.text) || p.text[p.pos] != ']' {
+			return nil, fmt.Errorf("expected ',' or ']' at offset %d", p.pos)
 		}
 	}
 }

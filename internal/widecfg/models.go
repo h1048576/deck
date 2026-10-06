@@ -679,7 +679,7 @@ func (m *ModelsManager) Detail(input any) (ModelDetail, error) {
 	case "dsh":
 		fields.BaseURL = &file.baseURL
 		if value, ok := item.Get("reasoningEfforts"); ok {
-			fields.ReasoningEfforts = normalizeValue(value)
+			fields.ReasoningEfforts = jsonc.Plain(value)
 		}
 	case "pi", "opencode":
 		baseURL := file.baseURL
