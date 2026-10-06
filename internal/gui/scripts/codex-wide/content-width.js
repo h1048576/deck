@@ -7,6 +7,15 @@
   const panes = new Set();
   let frame = 0;
 
+  const effectiveZoom = (element) => {
+    if (element.currentCSSZoom > 0) return element.currentCSSZoom;
+    let zoom = 1;
+    for (let current = element; current; current = current.parentElement) {
+      zoom *= Number.parseFloat(getComputedStyle(current).zoom) || 1;
+    }
+    return zoom;
+  };
+
   const update = (pane) => {
     const style = getComputedStyle(pane);
     const padding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
@@ -16,12 +25,14 @@
     const requested = style.getPropertyValue('--deck-codex-requested-width').trim();
     const match = requested.match(/^([0-9]+(?:\.[0-9]+)?)(px|rem|em|vw|vh|%)$/);
     if (match) {
+      // Codex 在应用容器上使用 CSS zoom，视口单位需先换算为容器中的像素。
+      const zoom = effectiveZoom(pane);
       const scales = {
         px: 1,
         rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
         em: Number.parseFloat(style.fontSize),
-        vw: window.innerWidth / 100,
-        vh: window.innerHeight / 100,
+        vw: window.innerWidth / (100 * zoom),
+        vh: window.innerHeight / (100 * zoom),
         '%': width / 100,
       };
       const pixels = `${Number(match[1]) * scales[match[2]]}px`;
@@ -56,14 +67,14 @@
   const relevant = (node) => node instanceof Element && (node.matches(selector) || !!node.querySelector(selector));
   const observer = new MutationObserver((records) => {
     if (records.some((record) => record.type === 'attributes'
-      ? panes.has(record.target) || record.target.matches(selector)
+      ? relevant(record.target)
       : [...record.addedNodes, ...record.removedNodes].some(relevant))) schedule();
   });
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['class', 'data-app-shell-focus-area', 'data-app-shell-main-content-layout'],
+    attributeFilter: ['class', 'style', 'data-app-shell-focus-area', 'data-app-shell-main-content-layout'],
   });
   window.addEventListener('resize', schedule);
   window[key] = {
