@@ -1,7 +1,8 @@
 (() => {
   const key = '__deckCodexContentWidthGuard';
   window[key]?.dispose();
-  const selector = '[data-app-shell-main-content-layout], [data-app-shell-focus-area="main"], [data-app-shell-focus-area="right-panel"]';
+  // 焦点区域也出现在标题栏、按钮和 display: contents 包装层上，只测量实际布局面板。
+  const selector = '[data-app-shell-main-content-layout], aside[data-app-shell-focus-area="right-panel"]';
   const property = '--deck-codex-pane-width';
   const requestedProperty = '--deck-codex-requested-width-px';
   const panes = new Set();

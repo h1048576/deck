@@ -255,6 +255,14 @@ body * {
     --deck-codex-requested-width: $safeWidth;
 }
 
+/* 侧边栏宽度被覆盖后，原生聊天容器的宽度可能仍按旧侧栏宽度计算。 */
+[data-app-shell-main-content-layout] > [data-app-shell-thread-edge-divider] {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
 [class*="--thread-content-max-width"],
 [class*="--thread-content-responsive-max-width"] {
     --thread-content-max-width: min(100%, var(--deck-codex-requested-width-px, $safeWidth), max(0px, calc(var(--deck-codex-pane-width, 100vw) - 2 * var(--thread-body-inline-padding, 0px)))) !important;
