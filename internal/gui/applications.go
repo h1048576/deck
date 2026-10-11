@@ -386,6 +386,14 @@ func (rt *applicationRuntime) connectPages(id string, port int, s settings.Droid
 
 func (rt *applicationRuntime) runWindows(id string, action string, s settings.DroidSettings, report Report, onStage func(string)) error {
 	capability := settings.Applications[id]
+	if capability.FontScript {
+		command := "& " + psQuote(rt.scriptFile(id))
+		if s.ExecutablePath != "" {
+			command += " -ExecutablePath " + psQuote(s.ExecutablePath)
+		}
+		_, err := rt.executeScript(command, capability.Name, report, onStage)
+		return err
+	}
 	args := []string{"& " + psQuote(rt.scriptFile(id)), "-Width", psQuote(s.Width), "-FontWeight", strconv.Itoa(s.FontWeight), "-Port", strconv.Itoa(s.Port)}
 	if capability.FontFamily {
 		args = append(args, "-FontFamily", psQuote(s.FontFamily))

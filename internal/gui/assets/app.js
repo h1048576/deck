@@ -13,21 +13,24 @@ const FEATURES = [
   { id: 'qoder', name: 'Qoder', iconSrc: 'icons/qoder.png' },
   { id: 'workbuddy', name: 'WorkBuddy', iconSrc: 'icons/workbuddy.png' },
   { id: 'manus', name: 'Manus', iconSrc: 'icons/manus.png' },
+  { id: 'claude', name: 'Claude', iconSrc: 'icons/claude.png' },
   { id: 'dsh', name: 'DSH', iconSrc: 'icons/dsh.svg' },
   { id: 'zcode', name: 'ZCode', iconSrc: 'icons/zcode.png' },
 ]
-const DEFAULT_MENU_ORDER = ['codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus']
+const DEFAULT_MENU_ORDER = ['codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus', 'claude']
+// fontScript：应用拒绝调试端口，只提供字体并复制脚本给用户在 DevTools 中执行。
 const APPLICATIONS = {
-  codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true },
-  droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true },
-  zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true },
-  workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false },
-  manus: { name: 'Manus', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false },
-  dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true },
-  qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true },
-  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false },
+  codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false },
+  droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false },
+  zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true, fontScript: false },
+  workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false },
+  manus: { name: 'Manus', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false },
+  claude: { name: 'Claude', sidebarWidth: false, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: false, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: true },
+  dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false },
+  qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false },
+  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false },
 }
-const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338 }
+const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338, claude: 9339 }
 const DEFAULT_DROID = {
   width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
   fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, fontWeight: 300, terminalFollow: true,
@@ -39,6 +42,7 @@ const DEFAULT_APPLICATIONS = {
   zcode: { ...DEFAULT_DROID, fontSize: 18, hideChanges: true, port: PORTS.zcode },
   workbuddy: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.workbuddy },
   manus: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.manus },
+  claude: { ...DEFAULT_DROID, port: PORTS.claude },
   dsh: { ...DEFAULT_DROID, port: PORTS.dsh },
   qoder: { ...DEFAULT_DROID, port: PORTS.qoder },
   paseo: { ...DEFAULT_DROID, hideLocalMerge: true, hideGitDiff: true, port: PORTS.paseo },
@@ -539,23 +543,25 @@ function renderApplicationPage(id) {
   }
 
   // ---- 布局 ----
-  const layoutSection = el('section', 'settings-group')
-  layoutSection.setAttribute('aria-label', '内容布局')
-  layoutSection.appendChild(el('h2', '', '布局'))
-  const layoutList = el('div', 'settings-list')
-  if (capability.sidebarWidth) {
-    layoutList.appendChild(DimensionControl({ id: 'sidebarWidth', label: '左侧栏宽度', value: settings.sidebarWidth, fallback: defaults.sidebarWidth, disabled, error: errors.sidebarWidth, onChange: value => update('sidebarWidth', value) }))
+  if (!capability.fontScript) {
+    const layoutSection = el('section', 'settings-group')
+    layoutSection.setAttribute('aria-label', '内容布局')
+    layoutSection.appendChild(el('h2', '', '布局'))
+    const layoutList = el('div', 'settings-list')
+    if (capability.sidebarWidth) {
+      layoutList.appendChild(DimensionControl({ id: 'sidebarWidth', label: '左侧栏宽度', value: settings.sidebarWidth, fallback: defaults.sidebarWidth, disabled, error: errors.sidebarWidth, onChange: value => update('sidebarWidth', value) }))
+    }
+    layoutList.appendChild(DimensionControl({ id: 'width', label: '内容区宽度', value: settings.width, fallback: defaults.width, disabled, error: errors.width, onChange: value => update('width', value) }))
+    if (capability.maxWidth) {
+      layoutList.appendChild(DimensionControl({ id: 'maxWidth', label: '最大宽度', value: settings.maxWidth, fallback: defaults.maxWidth, disabled, error: errors.maxWidth, onChange: value => update('maxWidth', value) }))
+    }
+    if (capability.chatHeight) {
+      const chat = PixelControl({ id: 'chatHeight', min: 0, max: 9999, step: 5, value: settings.chatHeight.endsWith('px') ? settings.chatHeight.slice(0, -2) : '', placeholder: !settings.chatHeight.endsWith('px') ? settings.chatHeight : undefined, ...inputProps('chatHeight'), onInput: value => update('chatHeight', `${value}px`) })
+      layoutList.appendChild(SettingRow('输入框高度', 'chatHeight', errors.chatHeight, chat.node))
+    }
+    layoutSection.appendChild(layoutList)
+    page.appendChild(layoutSection)
   }
-  layoutList.appendChild(DimensionControl({ id: 'width', label: '内容区宽度', value: settings.width, fallback: defaults.width, disabled, error: errors.width, onChange: value => update('width', value) }))
-  if (capability.maxWidth) {
-    layoutList.appendChild(DimensionControl({ id: 'maxWidth', label: '最大宽度', value: settings.maxWidth, fallback: defaults.maxWidth, disabled, error: errors.maxWidth, onChange: value => update('maxWidth', value) }))
-  }
-  if (capability.chatHeight) {
-    const chat = PixelControl({ id: 'chatHeight', min: 0, max: 9999, step: 5, value: settings.chatHeight.endsWith('px') ? settings.chatHeight.slice(0, -2) : '', placeholder: !settings.chatHeight.endsWith('px') ? settings.chatHeight : undefined, ...inputProps('chatHeight'), onInput: value => update('chatHeight', `${value}px`) })
-    layoutList.appendChild(SettingRow('输入框高度', 'chatHeight', errors.chatHeight, chat.node))
-  }
-  layoutSection.appendChild(layoutList)
-  page.appendChild(layoutSection)
 
   // ---- 字体 ----
   const fontSection = el('section', 'settings-group')
@@ -570,18 +576,33 @@ function renderApplicationPage(id) {
     const fontSize = PixelControl({ id: 'fontSize', min: 8, max: 72, value: settings.fontSize, ...inputProps('fontSize'), onInput: value => update('fontSize', Number(value)) })
     fontList.appendChild(SettingRow('字号', 'fontSize', errors.fontSize, fontSize.node))
   }
-  const weight = el('input', 'field-input number-input')
-  weight.id = 'fontWeight'
-  weight.type = 'number'
-  weight.min = '100'
-  weight.max = '1000'
-  weight.step = '100'
-  weight.value = settings.fontWeight
-  weight.disabled = disabled
-  if (errors.fontWeight) weight.setAttribute('aria-invalid', 'true')
-  if (errors.fontWeight) weight.setAttribute('aria-describedby', 'fontWeight-error')
-  weight.addEventListener('input', () => update('fontWeight', Number(weight.value)))
-  fontList.appendChild(SettingRow('字重', 'fontWeight', errors.fontWeight, weight))
+  if (!capability.fontScript) {
+    const weight = el('input', 'field-input number-input')
+    weight.id = 'fontWeight'
+    weight.type = 'number'
+    weight.min = '100'
+    weight.max = '1000'
+    weight.step = '100'
+    weight.value = settings.fontWeight
+    weight.disabled = disabled
+    if (errors.fontWeight) weight.setAttribute('aria-invalid', 'true')
+    if (errors.fontWeight) weight.setAttribute('aria-describedby', 'fontWeight-error')
+    weight.addEventListener('input', () => update('fontWeight', Number(weight.value)))
+    fontList.appendChild(SettingRow('字重', 'fontWeight', errors.fontWeight, weight))
+  }
+  if (capability.fontScript) {
+    const scriptRow = el('div', 'setting-row')
+    const scriptLabel = el('label', 'setting-label')
+    scriptLabel.appendChild(el('span', 'setting-name', '字体脚本'))
+    scriptRow.appendChild(scriptLabel)
+    const copyButton = el('button', 'button secondary')
+    copyButton.type = 'button'
+    copyButton.innerHTML = `${icon('copy', 15)}<span>复制脚本</span>`
+    copyButton.disabled = disabled || !!errors.fontFamily
+    copyButton.addEventListener('click', () => { void copyFontScript(id) })
+    scriptRow.appendChild(copyButton)
+    fontList.appendChild(scriptRow)
+  }
   if (capability.terminal) {
     fontList.appendChild(SettingRow('终端跟随', null, null, Switch('终端跟随', settings.terminalFollow, disabled, value => update('terminalFollow', value))))
   }
@@ -658,17 +679,19 @@ function renderApplicationPage(id) {
       debounce = setTimeout(() => { if (!settingsErrors(state.applications[id]).executablePath) void requestDetection(id, false, value) }, 400)
     })
     advancedWrap.appendChild(SettingRow('安装路径', 'executablePath', errors.executablePath, pathInput))
-    const portInput = el('input', 'field-input number-input')
-    portInput.id = 'port'
-    portInput.type = 'number'
-    portInput.min = '1024'
-    portInput.max = '65535'
-    portInput.value = settings.port
-    portInput.disabled = disabled
-    if (errors.port) portInput.setAttribute('aria-invalid', 'true')
-    if (errors.port) portInput.setAttribute('aria-describedby', 'port-error')
-    portInput.addEventListener('input', () => update('port', Number(portInput.value)))
-    advancedWrap.appendChild(SettingRow('调试端口', 'port', errors.port, portInput))
+    if (!capability.fontScript) {
+      const portInput = el('input', 'field-input number-input')
+      portInput.id = 'port'
+      portInput.type = 'number'
+      portInput.min = '1024'
+      portInput.max = '65535'
+      portInput.value = settings.port
+      portInput.disabled = disabled
+      if (errors.port) portInput.setAttribute('aria-invalid', 'true')
+      if (errors.port) portInput.setAttribute('aria-describedby', 'port-error')
+      portInput.addEventListener('input', () => update('port', Number(portInput.value)))
+      advancedWrap.appendChild(SettingRow('调试端口', 'port', errors.port, portInput))
+    }
     appList.appendChild(advancedWrap)
   }
   appSection.appendChild(appList)
@@ -686,12 +709,15 @@ function renderApplicationPage(id) {
   resetPresets.disabled = disabled
   resetPresets.addEventListener('click', () => askRestore('presets'))
   actions.appendChild(resetPresets)
-  const resetNormal = el('button', 'text-button')
-  const resetting = state.busy?.id === id && state.busy.action === 'normal'
-  resetNormal.innerHTML = resetting ? `${icon('refreshCw', 15, 2, 'spin')}<span>恢复中…</span>` : `${icon('rotateCcw', 15)}<span>恢复默认界面</span>`
-  resetNormal.disabled = !state.desktop || disabled || Object.keys(errors).length > 0 || missing
-  resetNormal.addEventListener('click', () => askRestore('normal'))
-  actions.appendChild(resetNormal)
+  // 字体脚本只在当前页面生效，重启即恢复默认界面，不需要单独入口。
+  if (!capability.fontScript) {
+    const resetNormal = el('button', 'text-button')
+    const resetting = state.busy?.id === id && state.busy.action === 'normal'
+    resetNormal.innerHTML = resetting ? `${icon('refreshCw', 15, 2, 'spin')}<span>恢复中…</span>` : `${icon('rotateCcw', 15)}<span>恢复默认界面</span>`
+    resetNormal.disabled = !state.desktop || disabled || Object.keys(errors).length > 0 || missing
+    resetNormal.addEventListener('click', () => askRestore('normal'))
+    actions.appendChild(resetNormal)
+  }
   page.appendChild(actions)
 
   // 页面展示缓存，过期数据在进入页面时后台校验。
@@ -956,6 +982,34 @@ async function chooseExecutable(id) {
     state.notice = { text: messageOf(error), error: true }
     renderToast()
   }
+}
+
+async function copyFontScript(id) {
+  try {
+    const { script } = await api('font-script', { featureId: id, fontFamily: state.applications[id].fontFamily })
+    await copyText(script)
+    state.notice = { text: `已复制字体脚本，请在 ${APPLICATIONS[id].name} 的开发者工具 Console 中粘贴执行。`, error: false }
+  } catch (error) {
+    state.notice = { text: messageOf(error), error: true }
+  }
+  renderToast()
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return
+  } catch { /* 剪贴板接口不可用时改用选区复制 */ }
+  const area = el('textarea')
+  area.value = text
+  area.readOnly = true
+  area.style.position = 'fixed'
+  area.style.opacity = '0'
+  document.body.appendChild(area)
+  area.select()
+  const copied = document.execCommand('copy')
+  area.remove()
+  if (!copied) throw new Error('无法写入剪贴板，请重试。')
 }
 
 async function run(id, action) {

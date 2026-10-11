@@ -33,7 +33,7 @@ const usage = `deck-cli：应用与模型管理命令行
   deck-cli models --help
   deck-cli version
 
-应用：codex、droid、zcode、workbuddy、dsh、qoder、paseo、manus
+应用：codex、droid、zcode、workbuddy、dsh、qoder、paseo、manus、claude
 
 选项：
   --all     处理全部应用，不能与应用名称同时使用

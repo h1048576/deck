@@ -673,11 +673,36 @@ func (h *host) buildRouter() *http.ServeMux {
 			writeJSON(rw, http.StatusOK, JobResult{Success: false, Message: message})
 			return
 		}
+		if settings.Applications[id].FontScript {
+			writeJSON(rw, http.StatusOK, JobResult{Success: true, Message: fmt.Sprintf("%s 已启动，字体需在开发者工具中执行复制的脚本。", name)})
+			return
+		}
 		if body.Action == "normal" {
 			writeJSON(rw, http.StatusOK, JobResult{Success: true, Message: fmt.Sprintf("%s 已以默认界面重新启动。", name)})
 			return
 		}
 		writeJSON(rw, http.StatusOK, JobResult{Success: true, Message: fmt.Sprintf("%s 界面设置已生效。", name)})
+	})
+	mux.HandleFunc("POST /api/font-script", func(rw http.ResponseWriter, r *http.Request) {
+		var body struct {
+			FeatureID  any    `json:"featureId"`
+			FontFamily string `json:"fontFamily"`
+		}
+		if err := decodeBody(r, &body); err != nil {
+			writeError(rw, err)
+			return
+		}
+		id, err := settings.ParseFeatureId(body.FeatureID)
+		if err != nil {
+			writeError(rw, err)
+			return
+		}
+		if !settings.Applications[id].FontScript {
+			writeError(rw, fmt.Errorf("%s 不需要字体脚本", settings.Applications[id].Name))
+			return
+		}
+		script, err := claudeFontScript(body.FontFamily)
+		writeResult(rw, map[string]string{"script": script}, err)
 	})
 	mux.HandleFunc("POST /api/window", func(rw http.ResponseWriter, r *http.Request) {
 		var body struct {

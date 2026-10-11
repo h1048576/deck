@@ -1,7 +1,7 @@
 ﻿param(
     [Parameter(Mandatory = $true)]
     [string]$ExecutablePath,
-    [ValidateSet('', 'codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus')]
+    [ValidateSet('', 'codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus', 'claude')]
     [string]$ApplicationId = '',
     [ValidateRange(1, 60)]
     [int]$Seconds = 45

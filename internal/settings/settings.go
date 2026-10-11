@@ -21,9 +21,10 @@ const (
 	Qoder     FeatureId = "qoder"
 	Paseo     FeatureId = "paseo"
 	Manus     FeatureId = "manus"
+	Claude    FeatureId = "claude"
 )
 
-var DefaultMenuOrder = []FeatureId{Codex, Droid, Zcode, Workbuddy, Dsh, Qoder, Paseo, Manus}
+var DefaultMenuOrder = []FeatureId{Codex, Droid, Zcode, Workbuddy, Dsh, Qoder, Paseo, Manus, Claude}
 
 const MenuOrderVersion = 2
 const ApplicationPortsVersion = 1
@@ -97,6 +98,8 @@ type Capabilities struct {
 	Changes    bool
 	Summary    bool
 	TerminalUI bool // whether the terminal follow switch is offered
+	// FontScript 表示应用拒绝调试端口，字体只能通过复制到 DevTools 的脚本手动应用。
+	FontScript bool
 }
 
 // Applications mirrors APPLICATIONS from types.ts.
@@ -109,6 +112,7 @@ var Applications = map[FeatureId]Capabilities{
 	Dsh:       {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Qoder:     {Name: "Qoder", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Paseo:     {Name: "Paseo", Sidebar: true, Merge: true, Diff: true},
+	Claude:    {Name: "Claude", FontFamily: true, FontScript: true},
 }
 
 // ApplicationsInOrder returns the capability rows in default menu order.
@@ -133,6 +137,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		Dsh:       base(Dsh),
 		Qoder:     base(Qoder),
 		Paseo:     func() DroidSettings { s := base(Paseo); s.HideLocalMerge = true; s.HideGitDiff = true; return s }(),
+		Claude:    base(Claude),
 	}
 }
 
@@ -205,6 +210,14 @@ var (
 	fontControlRune = regexp.MustCompile(`[;{}<>\r\n]`)
 )
 
+// FontFamilyError 是应用字体名称无效时的提示。
+const FontFamilyError = "请填写字体名称，不能包含 CSS 控制字符"
+
+// ValidFontFamily 检查应用字体名称能否安全写入 CSS。
+func ValidFontFamily(value string) bool {
+	return strings.TrimSpace(value) != "" && len(value) <= 300 && !fontControlRune.MatchString(value)
+}
+
 // SettingsErrors validates per-application settings, mirroring settingsErrors().
 func SettingsErrors(v DroidSettings) map[string]string {
 	errors := map[string]string{}
@@ -226,8 +239,8 @@ func SettingsErrors(v DroidSettings) map[string]string {
 	if v.FontWeight < 100 || v.FontWeight > 1000 {
 		errors["fontWeight"] = "字重须为 100–1000 的整数"
 	}
-	if strings.TrimSpace(v.FontFamily) == "" || len(v.FontFamily) > 300 || fontControlRune.MatchString(v.FontFamily) {
-		errors["fontFamily"] = "请填写字体名称，不能包含 CSS 控制字符"
+	if !ValidFontFamily(v.FontFamily) {
+		errors["fontFamily"] = FontFamilyError
 	}
 	if v.Port < 1024 || v.Port > 65535 {
 		errors["port"] = "端口须为 1024–65535 的整数"
