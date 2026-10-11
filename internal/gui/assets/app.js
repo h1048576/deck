@@ -12,20 +12,22 @@ const FEATURES = [
   { id: 'paseo', name: 'Paseo', iconSrc: 'icons/paseo.png' },
   { id: 'qoder', name: 'Qoder', iconSrc: 'icons/qoder.png' },
   { id: 'workbuddy', name: 'WorkBuddy', iconSrc: 'icons/workbuddy.png' },
+  { id: 'manus', name: 'Manus', iconSrc: 'icons/manus.png' },
   { id: 'dsh', name: 'DSH', iconSrc: 'icons/dsh.svg' },
   { id: 'zcode', name: 'ZCode', iconSrc: 'icons/zcode.png' },
 ]
-const DEFAULT_MENU_ORDER = ['codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo']
+const DEFAULT_MENU_ORDER = ['codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus']
 const APPLICATIONS = {
   codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true },
   droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true },
   zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true },
   workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false },
+  manus: { name: 'Manus', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false },
   dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true },
   qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true },
   paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false },
 }
-const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337 }
+const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338 }
 const DEFAULT_DROID = {
   width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
   fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, fontWeight: 300, terminalFollow: true,
@@ -36,6 +38,7 @@ const DEFAULT_APPLICATIONS = {
   droid: { ...DEFAULT_DROID },
   zcode: { ...DEFAULT_DROID, fontSize: 18, hideChanges: true, port: PORTS.zcode },
   workbuddy: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.workbuddy },
+  manus: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.manus },
   dsh: { ...DEFAULT_DROID, port: PORTS.dsh },
   qoder: { ...DEFAULT_DROID, port: PORTS.qoder },
   paseo: { ...DEFAULT_DROID, hideLocalMerge: true, hideGitDiff: true, port: PORTS.paseo },

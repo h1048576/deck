@@ -52,6 +52,9 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 	if id == "dsh" {
 		return dshInjection(s)
 	}
+	if id == "manus" {
+		return manusInjection(s)
+	}
 	templates := map[string]struct {
 		CSS    string `json:"css"`
 		Source string `json:"source"`

@@ -78,6 +78,10 @@ func (rt *applicationRuntime) connection(id string) *pageConnection {
 			}
 		case "dsh":
 			accepts = func(url string) bool { return strings.HasPrefix(url, "dsh-app://app/") }
+		case "manus":
+			accepts = func(url string) bool {
+				return regexp.MustCompile(`^app://manus/(?:app|login|task)(?:[/?#]|$)`).MatchString(url)
+			}
 		}
 		value = newPageConnection(settings.Applications[id].Name, styleID, accepts)
 		rt.connections[id] = value

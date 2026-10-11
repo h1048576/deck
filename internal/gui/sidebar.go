@@ -13,6 +13,16 @@ type sidebarLayout struct {
 
 // 各应用的侧栏容器和收起状态不同，只标记展开的布局面板。
 var sidebarLayouts = map[string]sidebarLayout{
+	"manus": {
+		selector: `[data-task-window-drop-region="navbar"]`,
+		scan: `for (const panel of document.querySelectorAll('[data-task-window-drop-region="navbar"]')) {
+      // 收起时外层宽度为零或图标栏宽度，保持原生收起和悬停预览行为。
+      panel.toggleAttribute(attribute, Number.parseFloat(panel.style.width) > 80 && getComputedStyle(panel).display !== 'none');
+    }`,
+		css: `[data-wide-manus-sidebar] > nav[data-navbar-preview-region="panel"] {
+      width: 100% !important; min-width: 0 !important;
+    }`,
+	},
 	"codex": {
 		selector: `.app-shell-left-panel, [data-app-navigation-rail]`,
 		scan: `for (const panel of document.querySelectorAll('.app-shell-left-panel')) {

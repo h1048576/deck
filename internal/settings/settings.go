@@ -20,9 +20,10 @@ const (
 	Dsh       FeatureId = "dsh"
 	Qoder     FeatureId = "qoder"
 	Paseo     FeatureId = "paseo"
+	Manus     FeatureId = "manus"
 )
 
-var DefaultMenuOrder = []FeatureId{Codex, Droid, Zcode, Workbuddy, Dsh, Qoder, Paseo}
+var DefaultMenuOrder = []FeatureId{Codex, Droid, Zcode, Workbuddy, Dsh, Qoder, Paseo, Manus}
 
 const MenuOrderVersion = 2
 const ApplicationPortsVersion = 1
@@ -104,6 +105,7 @@ var Applications = map[FeatureId]Capabilities{
 	Droid:     {Name: "Droid", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Zcode:     {Name: "ZCode", Sidebar: true, FontFamily: true, FontSize: true, Changes: true, TerminalUI: true},
 	Workbuddy: {Name: "WorkBuddy", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true},
+	Manus:     {Name: "Manus", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true},
 	Dsh:       {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Qoder:     {Name: "Qoder", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Paseo:     {Name: "Paseo", Sidebar: true, Merge: true, Diff: true},
@@ -127,6 +129,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		Droid:     base(Droid),
 		Zcode:     func() DroidSettings { s := base(Zcode); s.FontSize = 18; s.HideChanges = true; return s }(),
 		Workbuddy: func() DroidSettings { s := base(Workbuddy); s.FontWeight = 200; return s }(),
+		Manus:     func() DroidSettings { s := base(Manus); s.FontWeight = 200; return s }(),
 		Dsh:       base(Dsh),
 		Qoder:     base(Qoder),
 		Paseo:     func() DroidSettings { s := base(Paseo); s.HideLocalMerge = true; s.HideGitDiff = true; return s }(),
