@@ -48,6 +48,8 @@ const DEFAULT_APPLICATIONS = {
   paseo: { ...DEFAULT_DROID, hideLocalMerge: true, hideGitDiff: true, port: PORTS.paseo },
 }
 const DEFAULT_APPEARANCE = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, mode: 'compact' }
+const DEFAULT_FONT_OPTIONS = ['default', 'Cascadia Mono, LXGW WenKai Mono', 'Maple Mono Normal NF CN']
+const DEFAULT_TERMINAL = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', settingsPaths: [] }
 const DEFAULT_HARNESS_SETTINGS = { skillsCollapsed: true, modelsCollapsed: true, mcpsCollapsed: true }
 const SYSTEM_FONT = '"Segoe UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif'
 const BATCH_ACTION_LABELS = { start: '启动', restart: '重启', exit: '退出' }
@@ -65,6 +67,11 @@ const state = {
   menuOrder: [...DEFAULT_MENU_ORDER],
   applications: JSON.parse(JSON.stringify(DEFAULT_APPLICATIONS)),
   appearance: { ...DEFAULT_APPEARANCE },
+  fontOptions: [...DEFAULT_FONT_OPTIONS],
+  terminal: { ...DEFAULT_TERMINAL },
+  terminalConfigs: null,
+  terminalConfigsError: '',
+  terminalExpanded: false,
   harnessSettings: { ...DEFAULT_HARNESS_SETTINGS },
   theme: 'system',
   startupMode: 'default',
@@ -109,6 +116,10 @@ function settingsErrors(value) {
   if (!Number.isInteger(value.port) || value.port < 1024 || value.port > 65535) errors.port = '端口须为 1024–65535 的整数'
   if (typeof value.executablePath !== 'string' || /[\r\n\0]/.test(value.executablePath)) errors.executablePath = '应用路径无效'
   return errors
+}
+
+function terminalFontError(value) {
+  return typeof value !== 'string' || !value.trim() || value.length > 300 || /[;{}<>\r\n]/.test(value) ? '请填写字体名称，不能包含 CSS 控制字符' : ''
 }
 
 function appearanceErrors(value) {
@@ -574,7 +585,7 @@ function renderApplicationPage(id) {
   fontSection.appendChild(el('h2', '', '字体'))
   const fontList = el('div', 'settings-list')
   if (capability.fontFamily) {
-    const font = FontControl({ id: 'fontFamily', label: `${pageTitle()} 字体`, value: settings.fontFamily, disabled, error: errors.fontFamily, onChange: value => update('fontFamily', value) })
+    const font = FontControl({ id: 'fontFamily', label: `${pageTitle()} 字体`, value: settings.fontFamily, fonts: state.fontOptions, disabled, error: errors.fontFamily, onChange: value => update('fontFamily', value) })
     fontList.appendChild(SettingRow('字体', 'fontFamily', errors.fontFamily, font.node))
   }
   if (capability.fontSize) {
@@ -761,7 +772,7 @@ function renderSettingsPage() {
   })
   appearanceList.appendChild(SettingRow('主题', 'app-theme', null, themeSelect.node))
 
-  const font = FontControl({ id: 'app-fontFamily', value: appearance.fontFamily, systemOption: true, disabled: !state.ready || !!state.bootError, error: appErrors.fontFamily, onChange: value => updateAppearance('fontFamily', value) })
+  const font = FontControl({ id: 'app-fontFamily', label: '应用字体', value: appearance.fontFamily, fonts: state.fontOptions, disabled: !state.ready || !!state.bootError, error: appErrors.fontFamily, onChange: value => updateAppearance('fontFamily', value) })
   appearanceList.appendChild(SettingRow('字体', 'app-fontFamily', appErrors.fontFamily, font.node))
 
   const fontSize = PixelControl({ id: 'app-fontSize', min: 10, max: 24, value: appearance.fontSize, disabled: !state.ready || !!state.bootError, invalid: !!appErrors.fontSize, describedBy: appErrors.fontSize ? 'app-fontSize-error' : undefined, onInput: value => updateAppearance('fontSize', Number(value)) })
@@ -786,6 +797,8 @@ function renderSettingsPage() {
   harnessSection.appendChild(harnessList)
   page.appendChild(harnessSection)
 
+  page.appendChild(renderTerminalSection())
+
   const startupSection = el('section', 'settings-group')
   startupSection.setAttribute('aria-label', '应用启动')
   startupSection.appendChild(el('h2', '', '启动'))
@@ -808,6 +821,88 @@ function renderSettingsPage() {
   actions.appendChild(reset)
   page.appendChild(actions)
   return page
+}
+
+// ---- 终端 ----
+function renderTerminalSection() {
+  const section = el('section', 'settings-group')
+  section.setAttribute('aria-label', 'Windows Terminal 设置')
+  section.appendChild(el('h2', '', '终端'))
+  const list = el('div', 'settings-list')
+  const error = terminalFontError(state.terminal.fontFamily)
+  const expanded = state.terminalExpanded
+  const font = FontControl({ id: 'terminal-fontFamily', label: 'Windows Terminal 字体', value: state.terminal.fontFamily, fonts: state.fontOptions, disabled: !state.ready || !!state.bootError, error, onChange: value => updateTerminalFont(value) })
+  const fontRow = SettingRow('字体', 'terminal-fontFamily', error, font.node)
+  // 与 Harness 页 Skills 一致：箭头放在名称左侧，展开后在下方列出写入的配置文件。
+  const label = el('div', 'setting-label')
+  const disclosure = el('button', 'harness-disclosure')
+  disclosure.type = 'button'
+  disclosure.title = expanded ? '折叠配置文件' : '展开配置文件'
+  disclosure.setAttribute('aria-label', `${expanded ? '折叠' : '展开'} Windows Terminal 配置文件`)
+  disclosure.setAttribute('aria-expanded', expanded ? 'true' : 'false')
+  disclosure.setAttribute('aria-controls', 'terminal-configs')
+  disclosure.appendChild(html('span', '', icon('chevronDown', 16, 2, expanded ? 'open' : '')))
+  disclosure.appendChild(el('span', '', '字体'))
+  disclosure.addEventListener('click', () => { state.terminalExpanded = !state.terminalExpanded; renderPage() })
+  label.appendChild(disclosure)
+  fontRow.firstChild.replaceWith(label)
+  list.appendChild(fontRow)
+  if (expanded) {
+    const configList = el('div', 'harness-skill-list')
+    configList.id = 'terminal-configs'
+    if (state.terminalConfigsError) {
+      const row = el('div', 'setting-row harness-skill-row')
+      row.appendChild(el('span', 'terminal-config-status error', state.terminalConfigsError))
+      configList.appendChild(row)
+    }
+    ;(state.terminalConfigs ?? []).forEach(config => {
+      const row = el('div', 'setting-row harness-skill-row')
+      const name = el('div', 'harness-skill-name terminal-config-name')
+      name.title = config.resolved
+      name.appendChild(html('span', '', icon('fileText', 15)))
+      const text = el('div')
+      text.appendChild(el('span', '', config.name))
+      text.appendChild(el('small', 'terminal-config-path', config.path))
+      name.appendChild(text)
+      row.appendChild(name)
+      const status = config.error || (!config.exists ? '未安装' : config.face || '未设置字体')
+      row.appendChild(el('span', `terminal-config-status ${config.error ? 'error' : config.exists ? 'connected' : ''}`, status))
+      configList.appendChild(row)
+    })
+    list.appendChild(configList)
+  }
+  section.appendChild(list)
+  return section
+}
+
+function refreshTerminalConfigs() {
+  return api('terminal').then(data => {
+    state.terminalConfigs = data.configs
+    state.terminalConfigsError = ''
+  }).catch(error => {
+    state.terminalConfigsError = messageOf(error)
+  }).finally(() => { if (state.active === 'settings') renderPage() })
+}
+
+let terminalTimer = null
+let terminalRevision = 0
+
+function updateTerminalFont(value) {
+  state.terminal = { ...state.terminal, fontFamily: value }
+  clearTimeout(terminalTimer)
+  if (terminalFontError(value)) return
+  // 输入时合并修改，避免每个按键都改写 Windows Terminal 配置。
+  terminalTimer = setTimeout(() => {
+    const revision = ++terminalRevision
+    persist('terminal', async () => {
+      const result = await api('terminal', { fontFamily: value })
+      if (revision !== terminalRevision) return
+      state.terminalConfigs = result.configs
+      state.terminalConfigsError = ''
+      state.notice = { text: result.message, error: !result.success }
+      renderToast()
+    })
+  }, 600)
 }
 
 // ---- 持久化 ----
@@ -837,9 +932,15 @@ function persist(domain, task) {
 
 function applyAppearance() {
   const value = state.appearance
-  document.documentElement.style.fontFamily = value.fontFamily === '系统默认' ? SYSTEM_FONT : `${value.fontFamily}, ${SYSTEM_FONT}`
+  document.documentElement.style.fontFamily = isDefaultFont(value.fontFamily) ? SYSTEM_FONT : `${value.fontFamily}, ${SYSTEM_FONT}`
   document.documentElement.style.fontSize = `${value.fontSize}px`
   document.documentElement.dataset.mode = value.mode
+}
+
+// 与后端 settings.IsDefaultFont 一致，兼容旧版的“系统默认”。
+function isDefaultFont(value) {
+  const font = String(value ?? '').trim()
+  return font.toLowerCase() === 'default' || font === '系统默认'
 }
 
 function changeTheme(next) {
@@ -1077,6 +1178,8 @@ function setActive(id) {
   state.active = id
   state.advanced = false
   renderShell()
+  // 配置文件可能被 Windows Terminal 或手动修改，进入设置页时重新读取。
+  if (id === 'settings') void refreshTerminalConfigs()
 }
 
 // ---- 恢复确认 ----
@@ -1193,6 +1296,8 @@ async function bootstrap() {
     state.version = data.version
     state.applications = { ...DEFAULT_APPLICATIONS, ...data.preferences.applications }
     state.appearance = data.preferences.appearance
+    if (Array.isArray(data.preferences.fontOptions) && data.preferences.fontOptions.length) state.fontOptions = data.preferences.fontOptions
+    if (data.preferences.terminal) state.terminal = { ...DEFAULT_TERMINAL, ...data.preferences.terminal }
     state.harnessSettings = data.preferences.harness
     state.theme = data.preferences.theme
     state.startupMode = data.preferences.startupMode
@@ -1249,6 +1354,7 @@ window.addEventListener('focus', () => {
   if (!state.busy && !document.hidden && ['settings', 'start', 'harness'].indexOf(state.active) === -1) {
     void requestDetection(state.active, false)
   }
+  if (state.active === 'settings' && !document.hidden) void refreshTerminalConfigs()
 })
 
 // 窗口最大化状态轮询。

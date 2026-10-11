@@ -53,6 +53,8 @@ func (s *Store) Prefs() Preferences {
 func clonePreferences(prefs Preferences) Preferences {
 	prefs.Applications = maps.Clone(prefs.Applications)
 	prefs.MenuOrder = slices.Clone(prefs.MenuOrder)
+	prefs.FontOptions = slices.Clone(prefs.FontOptions)
+	prefs.Terminal.SettingsPaths = slices.Clone(prefs.Terminal.SettingsPaths)
 	if prefs.OpenAtLogin != nil {
 		enabled := *prefs.OpenAtLogin
 		prefs.OpenAtLogin = &enabled
@@ -98,6 +100,19 @@ func (s *Store) Load() {
 		return
 	}
 	s.prefs = prefs
+	// 新增字段和迁移结果立即写回，手动编辑 setting.json 时能看到完整配置；写入失败时下次保存会重试。
+	if normalized, err := marshalPreferences(prefs); err == nil && !bytes.Equal(normalized, text) {
+		_ = writeSettingsFile(s.root, normalized)
+	}
+}
+
+func writeSettingsFile(root string, text []byte) error {
+	file := filepath.Join(root, appdir.SettingsName)
+	tmp := file + ".tmp"
+	if err := os.WriteFile(tmp, text, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, file)
 }
 
 func decodePreferences(data map[string]any) (Preferences, error) {
@@ -184,6 +199,8 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		saved, _ := data["menuOrder"].([]any)
 		prefs.MenuOrder = NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude }))
 	}
+	prefs.FontOptions = ParseFontOptions(data["fontOptions"])
+	prefs.Terminal = ParseTerminal(data["terminal"])
 	return prefs, nil
 }
 
@@ -265,12 +282,7 @@ func (s *Store) flushBatch() {
 				}
 			}
 		}
-		file := filepath.Join(s.root, appdir.SettingsName)
-		tmp := file + ".tmp"
-		if err := os.WriteFile(tmp, text, 0o644); err != nil {
-			return err
-		}
-		if err := os.Rename(tmp, file); err != nil {
+		if err := writeSettingsFile(s.root, text); err != nil {
 			return err
 		}
 		s.warning = ""

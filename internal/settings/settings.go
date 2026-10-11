@@ -5,6 +5,7 @@ package settings
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -63,6 +64,58 @@ type HarnessSettings struct {
 	McpsCollapsed   bool `json:"mcpsCollapsed"`
 }
 
+// TerminalSettings 配置 Windows Terminal 的字体。
+// SettingsPaths 可以使用 %LOCALAPPDATA% 等 Windows 环境变量，便于在不同电脑上通用。
+type TerminalSettings struct {
+	FontFamily    string   `json:"fontFamily"`
+	SettingsPaths []string `json:"settingsPaths"`
+}
+
+// DefaultTerminal 对应正式版、预览版和 Canary 版 Windows Terminal。
+func DefaultTerminal() TerminalSettings {
+	return TerminalSettings{
+		FontFamily: "Cascadia Mono, LXGW WenKai Mono",
+		SettingsPaths: []string{
+			`%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json`,
+			`%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json`,
+			`%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminalCanary_8wekyb3d8bbwe\LocalState\settings.json`,
+		},
+	}
+}
+
+// ParseTerminal 读取 setting.json 中的终端配置。
+// 无效项回退到默认值，避免手动编辑出错时整个设置文件被当作无法读取。
+func ParseTerminal(input any) TerminalSettings {
+	value := DefaultTerminal()
+	data, ok := input.(map[string]any)
+	if !ok {
+		return value
+	}
+	if font, ok := data["fontFamily"].(string); ok && ValidFontFamily(font) {
+		value.FontFamily = strings.TrimSpace(font)
+	}
+	if list, ok := data["settingsPaths"].([]any); ok {
+		paths := make([]string, 0, len(list))
+		for _, item := range list {
+			path, ok := item.(string)
+			path = strings.TrimSpace(path)
+			if !ok || !ValidTerminalSettingsPath(path) || slices.Contains(paths, path) {
+				continue
+			}
+			paths = append(paths, path)
+		}
+		if len(paths) > 0 {
+			value.SettingsPaths = paths
+		}
+	}
+	return value
+}
+
+// ValidTerminalSettingsPath 检查终端配置文件路径能否安全使用。
+func ValidTerminalSettingsPath(path string) bool {
+	return path != "" && len(path) <= 1024 && !strings.ContainsAny(path, "\r\n\x00")
+}
+
 // DefaultHarnessSettings mirrors DEFAULT_HARNESS_SETTINGS.
 func DefaultHarnessSettings() HarnessSettings {
 	return HarnessSettings{SkillsCollapsed: true, ModelsCollapsed: true, McpsCollapsed: true}
@@ -75,6 +128,57 @@ func DefaultAppearance() AppearanceSettings {
 
 // SystemFont is the fallback font stack for '系统默认'.
 const SystemFont = `"Segoe UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif`
+
+// DefaultFontOption 是字体列表里代表系统界面字体的选项。
+const DefaultFontOption = "default"
+
+// legacySystemFontOption 是旧版 deck 设置页里系统字体选项的值。
+const legacySystemFontOption = "系统默认"
+
+// SystemFontFamily 是 default 在受管应用中对应的字体。
+// 不带引号，避免启动脚本转发参数时引号被拆开。
+const SystemFontFamily = "Segoe UI, Microsoft YaHei"
+
+// DefaultFontOptions 是字体下拉框的默认选项。
+func DefaultFontOptions() []string {
+	return []string{DefaultFontOption, "Cascadia Mono, LXGW WenKai Mono", "Maple Mono Normal NF CN"}
+}
+
+// IsDefaultFont 判断字体值是否表示系统界面字体。
+func IsDefaultFont(value string) bool {
+	value = strings.TrimSpace(value)
+	return strings.EqualFold(value, DefaultFontOption) || value == legacySystemFontOption
+}
+
+// ResolveFontFamily 把 default 换成实际字体，其他值原样返回。
+func ResolveFontFamily(value string) string {
+	if IsDefaultFont(value) {
+		return SystemFontFamily
+	}
+	return value
+}
+
+// ParseFontOptions 读取 setting.json 中的字体列表。
+// 跳过无效和重复的字体名；列表缺失或为空时使用默认列表，避免下拉框没有选项。
+func ParseFontOptions(input any) []string {
+	list, ok := input.([]any)
+	if !ok {
+		return DefaultFontOptions()
+	}
+	options := make([]string, 0, len(list))
+	for _, item := range list {
+		value, ok := item.(string)
+		value = strings.TrimSpace(value)
+		if !ok || !ValidFontFamily(value) || slices.Contains(options, value) {
+			continue
+		}
+		options = append(options, value)
+	}
+	if len(options) == 0 {
+		return DefaultFontOptions()
+	}
+	return options
+}
 
 // DefaultPorts maps every feature id to its default debug port.
 // 端口与菜单顺序无关，调整默认菜单顺序时不能改变已发布的端口。
@@ -171,6 +275,9 @@ type Preferences struct {
 	MenuOrder               []FeatureId                 `json:"menuOrder"`
 	MenuOrderVersion        int                         `json:"menuOrderVersion"`
 	ApplicationPortsVersion int                         `json:"applicationPortsVersion"`
+	// FontOptions 是 deck 设置页和各应用页字体下拉框的选项，只能直接编辑 setting.json。
+	FontOptions []string         `json:"fontOptions"`
+	Terminal    TerminalSettings `json:"terminal"`
 }
 
 // DefaultPreferences returns a fully populated default document.
@@ -184,6 +291,8 @@ func DefaultPreferences() Preferences {
 		MenuOrder:               append([]FeatureId(nil), DefaultMenuOrder...),
 		MenuOrderVersion:        MenuOrderVersion,
 		ApplicationPortsVersion: ApplicationPortsVersion,
+		FontOptions:             DefaultFontOptions(),
+		Terminal:                DefaultTerminal(),
 	}
 }
 
@@ -434,6 +543,9 @@ func ParseAppearance(input map[string]any) (AppearanceSettings, error) {
 		return AppearanceSettings{}, fmt.Errorf("请输入有效的字体名称")
 	} else {
 		value.FontFamily = DefaultAppearance().FontFamily
+	}
+	if IsDefaultFont(value.FontFamily) {
+		value.FontFamily = DefaultFontOption
 	}
 	switch raw := input["fontSize"].(type) {
 	case float64:

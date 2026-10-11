@@ -61,6 +61,8 @@ type host struct {
 	windows  Windows
 	notices  []JobResult
 	noticeMu sync.Mutex
+	// terminalMu 让终端字体按顺序写入，不占用应用操作的忙碌状态。
+	terminalMu sync.Mutex
 }
 
 func newHost(version string, isWeb bool) *host {
@@ -534,6 +536,33 @@ func (h *host) buildRouter() *http.ServeMux {
 		}
 		writeJSON(rw, http.StatusOK, map[string]bool{"ok": true})
 	})
+	mux.HandleFunc("GET /api/terminal", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, map[string]any{"configs": terminalConfigs(h.store.Prefs().Terminal.SettingsPaths)})
+	})
+	mux.HandleFunc("POST /api/terminal", func(rw http.ResponseWriter, r *http.Request) {
+		var body struct {
+			FontFamily string `json:"fontFamily"`
+		}
+		if err := decodeBody(r, &body); err != nil {
+			writeError(rw, err)
+			return
+		}
+		fontFamily := strings.TrimSpace(body.FontFamily)
+		if !settings.ValidFontFamily(fontFamily) {
+			writeError(rw, fmt.Errorf("%s", settings.FontFamilyError))
+			return
+		}
+		h.terminalMu.Lock()
+		defer h.terminalMu.Unlock()
+		if err := <-h.store.Update(func(current settings.Preferences) settings.Preferences {
+			current.Terminal.FontFamily = fontFamily
+			return current
+		}); err != nil {
+			writeError(rw, err)
+			return
+		}
+		writeJSON(rw, http.StatusOK, applyTerminalFont(h.store.Prefs().Terminal.SettingsPaths, fontFamily))
+	})
 	mux.HandleFunc("POST /api/menu-order", func(rw http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Order any `json:"order"`
@@ -701,7 +730,7 @@ func (h *host) buildRouter() *http.ServeMux {
 			writeError(rw, fmt.Errorf("%s 不需要字体脚本", settings.Applications[id].Name))
 			return
 		}
-		script, err := claudeFontScript(body.FontFamily)
+		script, err := claudeFontScript(settings.ResolveFontFamily(body.FontFamily))
 		writeResult(rw, map[string]string{"script": script}, err)
 	})
 	mux.HandleFunc("POST /api/window", func(rw http.ResponseWriter, r *http.Request) {

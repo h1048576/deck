@@ -56,6 +56,7 @@ deck 不包含受管应用，请先安装需要使用的 AI 编程工具。发�
 - 跟随系统、亮色或暗色主题。
 - 字体、字号与紧凑模式。
 - Harness 区块折叠状态记忆。
+- Windows Terminal 字体：修改后同步写入正式版、预览版和 Canary 版的配置。
 - 开机启动与应用启动方式。
 - 菜单拖拽排序，也可使用 `Alt + ↑ / ↓` 调整顺序。
 - 单实例运行，再次启动会唤起已有窗口；操作进行中或设置保存中会阻止立即关闭。
@@ -125,9 +126,10 @@ go build -tags nogui -o deck-serve.exe .
 | WebView2 用户数据 | `%LOCALAPPDATA%\deck\webview2\` |
 | 模型配置备份 | `%LOCALAPPDATA%\deck\model-backups\` |
 | MCP 配置备份 | `%LOCALAPPDATA%\deck\mcp-backups\` |
+| Windows Terminal 配置备份 | `%LOCALAPPDATA%\deck\terminal-backups\` |
 | 无法读取的设置恢复副本 | `%LOCALAPPDATA%\deck\setting-backups\` |
 
-辅助脚本和 WebView2 数据在启动时自动生成；模型和 MCP 备份仅在修改相应配置时生成。退出 deck 后，可以删除这些运行数据，下一次启动会重新生成必要文件，`setting.json` 中的设置会保留。
+辅助脚本和 WebView2 数据在启动时自动生成；模型、MCP 和 Windows Terminal 备份仅在修改相应配置时生成。退出 deck 后，可以删除这些运行数据，下一次启动会重新生成必要文件，`setting.json` 中的设置会保留。
 
 升级后也可以删除旧版本在 `.deck` 下生成的 `scripts`、`webview2`、`model-backups` 和 `mcp-backups` 目录；新版不会再使用或重新创建这些目录。
 
@@ -140,7 +142,40 @@ $env:DECK_CONFIG_DIR = 'D:\deck-data'
 
 首次启动时，如果 `setting.json` 尚不存在，deck 会复制已有版本的设置，原文件会保留，不复制旧备份或运行数据。已有 `setting.json` 时不会覆盖；使用 `DECK_CONFIG_DIR` 时，也支持将该目录中的旧设置文件迁移为 `setting.json`。
 
-所有受管应用的界面配置，以及 deck 的主题、字体、字号、模式、Harness 折叠、开机启动、启动方式和菜单顺序，都保存在同一个 `setting.json` 中。
+所有受管应用的界面配置，以及 deck 的主题、字体、字号、模式、Harness 折叠、开机启动、启动方式、菜单顺序和字体下拉选项，都保存在同一个 `setting.json` 中。
+
+字体下拉框的选项来自 `setting.json` 的 `fontOptions`，deck 设置页和各应用页共用。这一项没有界面入口，请在退出 deck 后直接编辑，下次启动生效：
+
+```json
+"fontOptions": [
+  "default",
+  "Cascadia Mono, LXGW WenKai Mono",
+  "Maple Mono Normal NF CN"
+]
+```
+
+- `default` 表示系统界面字体（Segoe UI、微软雅黑）。
+- 一项可以写多个字体，用英文逗号分隔，前面的字体缺字时使用后面的字体。
+- 包含 `;{}<>` 或换行的字体名、重复项会被忽略；列表为空或缺失时恢复为上面的默认列表。
+- 下拉框只提供候选，输入框仍可直接填写列表外的字体。
+
+设置页“终端”分组的字体保存在 `terminal.fontFamily`，修改后会写入 `terminal.settingsPaths` 中每个 Windows Terminal 配置文件的 `profiles.defaults.font.face`；某个 profile 自己设置了字体时也会一起修改。路径可以使用 `%LOCALAPPDATA%` 等环境变量，换电脑后无需改动：
+
+```json
+"terminal": {
+  "fontFamily": "Cascadia Mono, LXGW WenKai Mono",
+  "settingsPaths": [
+    "%LOCALAPPDATA%\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+    "%LOCALAPPDATA%\\Packages\\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\\LocalState\\settings.json",
+    "%LOCALAPPDATA%\\Packages\\Microsoft.WindowsTerminalCanary_8wekyb3d8bbwe\\LocalState\\settings.json"
+  ]
+}
+```
+
+- 不存在的配置文件视为未安装，会被跳过。
+- 终端里的 `default` 表示 Windows Terminal 自带的 Cascadia Mono，因为系统界面字体是比例字体，不适合终端。
+- 写入前会把原文件备份到 `terminal-backups`，并保留原有注释和格式。
+- 路径列表为空或缺失时恢复为上面的三个默认路径。
 
 AI 工具自身的指令、技能、模型和 MCP 配置仍位于各工具的用户目录。
 

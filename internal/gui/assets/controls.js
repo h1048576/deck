@@ -256,12 +256,10 @@ export function EditableSelectControl({ id, label, value, disabled = false, opti
   return { node: anchor, update }
 }
 
-const FONT_OPTIONS = ['Cascadia Mono, LXGW WenKai Mono', 'LXGW WenKai Mono', 'Cascadia Mono', 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', 'Noto Sans CJK SC', 'Arial'].map(font => ({ value: font, label: font }))
-const SYSTEM_FONT_OPTIONS = [{ value: '系统默认', label: '系统默认' }, ...FONT_OPTIONS]
-
-export function FontControl({ id, value, disabled, error, onChange, systemOption = false, label }) {
-  const options = systemOption ? SYSTEM_FONT_OPTIONS : FONT_OPTIONS
-  const resolvedLabel = label ?? (systemOption ? '应用字体' : '字体')
+// fonts 来自 setting.json 的 fontOptions；输入框仍可填写列表外的字体。
+export function FontControl({ id, value, disabled, error, onChange, fonts = [], label }) {
+  const options = fonts.map(font => ({ value: font, label: font }))
+  const resolvedLabel = label ?? '字体'
   const dropdown = useDropdown(options, value, disabled, onChange)
   dropdown.state.id = id
   dropdown.state.label = resolvedLabel

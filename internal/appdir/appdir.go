@@ -104,6 +104,9 @@ func ModelBackups() string { return filepath.Join(RuntimeData(), "model-backups"
 // McpBackups returns the directory for pre-write MCP config backups.
 func McpBackups() string { return filepath.Join(RuntimeData(), "mcp-backups") }
 
+// TerminalBackups returns the directory for pre-write Windows Terminal settings backups.
+func TerminalBackups() string { return filepath.Join(RuntimeData(), "terminal-backups") }
+
 // WebViewData returns the WebView2 user data directory.
 func WebViewData() string { return filepath.Join(RuntimeData(), "webview2") }
 

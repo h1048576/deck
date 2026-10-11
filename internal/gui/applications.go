@@ -463,6 +463,8 @@ func selectPort(preferred int, message string) (int, error) {
 
 // RunApplication launches an app with UI injection applied.
 func (rt *applicationRuntime) RunApplication(id string, action string, s settings.DroidSettings, report Report, startupMode string, onStage func(string)) error {
+	// 所有注入和启动脚本都从这里取得设置，default 在此统一换成实际字体。
+	s.FontFamily = settings.ResolveFontFamily(s.FontFamily)
 	if id == settings.Droid && startupMode == "default" {
 		return rt.droid.Run(action, s, LogFunc(report), onStage)
 	}
