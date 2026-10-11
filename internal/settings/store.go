@@ -246,11 +246,19 @@ func (s *Store) flushBatch() {
 			return err
 		}
 		if s.warning != "" {
-			backup := filepath.Join(s.root, fmt.Sprintf("setting.backup-%d.json", time.Now().UnixMilli()))
-			if err := os.Rename(filepath.Join(s.root, appdir.SettingsName), backup); err != nil && !os.IsNotExist(err) {
+			original, err := os.ReadFile(filepath.Join(s.root, appdir.SettingsName))
+			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
-			s.warning = ""
+			if err == nil {
+				if err := os.MkdirAll(appdir.SettingsBackups(), 0o755); err != nil {
+					return err
+				}
+				backup := filepath.Join(appdir.SettingsBackups(), fmt.Sprintf("setting.backup-%d.json", time.Now().UnixMilli()))
+				if err := os.WriteFile(backup, original, 0o600); err != nil {
+					return err
+				}
+			}
 		}
 		file := filepath.Join(s.root, appdir.SettingsName)
 		tmp := file + ".tmp"
@@ -260,6 +268,7 @@ func (s *Store) flushBatch() {
 		if err := os.Rename(tmp, file); err != nil {
 			return err
 		}
+		s.warning = ""
 		return nil
 	}()
 	if err == nil {

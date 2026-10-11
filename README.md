@@ -111,28 +111,35 @@ go build -tags nogui -o deck-serve.exe .
 
 ## 数据位置
 
-默认配置目录为 `%USERPROFILE%\.deck`：
+默认配置目录为 `%USERPROFILE%\.deck`，只保存 `setting.json`。应用设置和界面偏好从这个文件恢复。
+
+运行文件单独保存在 `%LOCALAPPDATA%\deck`：
 
 | 内容 | 路径 |
 | --- | --- |
 | 应用设置 | `%USERPROFILE%\.deck\setting.json` |
-| 模型配置备份 | `%USERPROFILE%\.deck\model-backups\` |
-| MCP 配置备份 | `%USERPROFILE%\.deck\mcp-backups\` |
-| WebView2 用户数据 | `%USERPROFILE%\.deck\webview2\` |
-| 内嵌辅助脚本 | `%USERPROFILE%\.deck\scripts\` |
+| 内嵌辅助脚本 | `%LOCALAPPDATA%\deck\scripts\` |
+| WebView2 用户数据 | `%LOCALAPPDATA%\deck\webview2\` |
+| 模型配置备份 | `%LOCALAPPDATA%\deck\model-backups\` |
+| MCP 配置备份 | `%LOCALAPPDATA%\deck\mcp-backups\` |
+| 无法读取的设置恢复副本 | `%LOCALAPPDATA%\deck\setting-backups\` |
 
-可通过环境变量 `DECK_CONFIG_DIR` 指定独立配置目录，例如：
+辅助脚本和 WebView2 数据在启动时自动生成；模型和 MCP 备份仅在修改相应配置时生成。退出 deck 后，可以删除这些运行数据，下一次启动会重新生成必要文件，`setting.json` 中的设置会保留。
+
+升级后也可以删除旧版本在 `.deck` 下生成的 `scripts`、`webview2`、`model-backups` 和 `mcp-backups` 目录；新版不会再使用或重新创建这些目录。
+
+可通过环境变量 `DECK_CONFIG_DIR` 指定独立的设置目录；它只影响 `setting.json` 的位置，例如：
 
 ```powershell
 $env:DECK_CONFIG_DIR = 'D:\deck-data'
 .\deck.exe
 ```
 
-首次启动时，如果 `setting.json` 尚不存在，deck 会复制已有版本的设置和模型 / MCP 备份，原文件会保留。已有 `setting.json` 时不会覆盖；使用 `DECK_CONFIG_DIR` 时，也支持将该目录中的旧设置文件迁移为 `setting.json`。
+首次启动时，如果 `setting.json` 尚不存在，deck 会复制已有版本的设置，原文件会保留，不复制旧备份或运行数据。已有 `setting.json` 时不会覆盖；使用 `DECK_CONFIG_DIR` 时，也支持将该目录中的旧设置文件迁移为 `setting.json`。
 
 所有受管应用的界面配置，以及 deck 的主题、字体、字号、模式、Harness 折叠、开机启动、启动方式和菜单顺序，都保存在同一个 `setting.json` 中。
 
-AI 工具自身的指令、技能、模型和 MCP 配置仍位于各工具的用户目录；deck 的配置目录用于保存自身设置、备份和运行数据。
+AI 工具自身的指令、技能、模型和 MCP 配置仍位于各工具的用户目录。
 
 ## 目录结构
 

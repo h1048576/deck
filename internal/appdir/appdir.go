@@ -13,7 +13,7 @@ const Name = "deck"
 // SettingsName is shared by the settings store and configuration migration.
 const SettingsName = "setting.json"
 
-// Config returns the directory holding setting.json and backups.
+// Config returns the directory holding setting.json.
 func Config() string {
 	if custom := os.Getenv("DECK_CONFIG_DIR"); strings.TrimSpace(custom) != "" {
 		return custom
@@ -22,7 +22,7 @@ func Config() string {
 	return filepath.Join(home, "."+Name)
 }
 
-// MigrateLegacyConfig copies existing preferences and backups on first launch.
+// MigrateLegacyConfig copies existing preferences on first launch.
 // Existing setting.json files are never replaced; legacy files are retained.
 func MigrateLegacyConfig() error {
 	target := Config()
@@ -74,31 +74,6 @@ func MigrateLegacyConfig() error {
 	if err := os.WriteFile(filepath.Join(stage, SettingsName), data, 0o600); err != nil {
 		return err
 	}
-	for _, name := range []string{"model-backups", "mcp-backups"} {
-		destination := filepath.Join(target, name)
-		if _, err := os.Stat(destination); err == nil {
-			continue
-		} else if !os.IsNotExist(err) {
-			return err
-		}
-		path := filepath.Join(filepath.Dir(source), name)
-		info, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			stagedBackup := filepath.Join(stage, name)
-			if err := os.CopyFS(stagedBackup, os.DirFS(path)); err != nil {
-				return err
-			}
-			if err := os.Rename(stagedBackup, destination); err != nil {
-				return err
-			}
-		}
-	}
 	if _, err := os.Stat(SettingsFile()); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -110,14 +85,27 @@ func MigrateLegacyConfig() error {
 // SettingsFile returns the setting.json path.
 func SettingsFile() string { return filepath.Join(Config(), SettingsName) }
 
+// RuntimeData returns the directory for generated files and recovery backups.
+// It is independent of Config so deleting its contents never resets preferences.
+func RuntimeData() string {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, Name)
+}
+
+// SettingsBackups returns the directory for unreadable settings recovery copies.
+func SettingsBackups() string { return filepath.Join(RuntimeData(), "setting-backups") }
+
 // ModelBackups returns the directory for pre-write model config backups.
-func ModelBackups() string { return filepath.Join(Config(), "model-backups") }
+func ModelBackups() string { return filepath.Join(RuntimeData(), "model-backups") }
 
 // McpBackups returns the directory for pre-write MCP config backups.
-func McpBackups() string { return filepath.Join(Config(), "mcp-backups") }
+func McpBackups() string { return filepath.Join(RuntimeData(), "mcp-backups") }
 
 // WebViewData returns the WebView2 user data directory.
-func WebViewData() string { return filepath.Join(Config(), "webview2") }
+func WebViewData() string { return filepath.Join(RuntimeData(), "webview2") }
 
 // ScriptsDir returns the directory where embedded PowerShell helpers are extracted.
-func ScriptsDir() string { return filepath.Join(Config(), "scripts") }
+func ScriptsDir() string { return filepath.Join(RuntimeData(), "scripts") }

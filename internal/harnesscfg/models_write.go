@@ -564,7 +564,7 @@ func (m *ModelsManager) commitAll(changes []*fileChange) error {
 				}
 			}
 			if rollbackFailed {
-				return fmt.Errorf("写入配置失败，部分文件未能恢复，请从 deck 的 model-backups 目录恢复")
+				return fmt.Errorf("写入配置失败，部分文件未能恢复，请从 %s 目录恢复", m.backups)
 			}
 			return fmt.Errorf("写入模型配置失败：%v", err)
 		}
