@@ -17,7 +17,7 @@ const FEATURES = [
   { id: 'dsh', name: 'DSH', iconSrc: 'icons/dsh.svg' },
   { id: 'zcode', name: 'ZCode', iconSrc: 'icons/zcode.png' },
 ]
-const DEFAULT_MENU_ORDER = ['codex', 'droid', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus', 'claude']
+const DEFAULT_MENU_ORDER = ['codex', 'droid', 'claude', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus']
 // fontScript：应用拒绝调试端口，只提供字体并复制脚本给用户在 DevTools 中执行。
 const APPLICATIONS = {
   codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false },
@@ -125,6 +125,11 @@ function normalizeMenuOrder(input) {
     const workbuddy = saved.indexOf('workbuddy')
     const qoder = saved.indexOf('qoder')
     saved.splice(workbuddy >= 0 ? workbuddy + 1 : qoder >= 0 ? qoder : saved.length, 0, 'dsh')
+  }
+  if (saved.length && !saved.includes('claude')) {
+    const droid = saved.indexOf('droid')
+    const zcode = saved.indexOf('zcode')
+    saved.splice(droid >= 0 ? droid + 1 : zcode >= 0 ? zcode : saved.length, 0, 'claude')
   }
   return [...new Set([...saved, ...DEFAULT_MENU_ORDER])]
 }

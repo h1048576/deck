@@ -24,9 +24,9 @@ const (
 	Claude    FeatureId = "claude"
 )
 
-var DefaultMenuOrder = []FeatureId{Codex, Droid, Zcode, Workbuddy, Dsh, Qoder, Paseo, Manus, Claude}
+var DefaultMenuOrder = []FeatureId{Codex, Droid, Claude, Zcode, Workbuddy, Dsh, Qoder, Paseo, Manus}
 
-const MenuOrderVersion = 2
+const MenuOrderVersion = 3
 const ApplicationPortsVersion = 1
 const InstallCacheMs = 60000
 const MissingInstallCacheMs = 15000
@@ -77,12 +77,12 @@ func DefaultAppearance() AppearanceSettings {
 const SystemFont = `"Segoe UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif`
 
 // DefaultPorts maps every feature id to its default debug port.
+// 端口与菜单顺序无关，调整默认菜单顺序时不能改变已发布的端口。
 func DefaultPorts() map[FeatureId]int {
-	ports := make(map[FeatureId]int, len(DefaultMenuOrder))
-	for i, id := range DefaultMenuOrder {
-		ports[id] = 9331 + i
+	return map[FeatureId]int{
+		Codex: 9331, Droid: 9332, Zcode: 9333, Workbuddy: 9334, Dsh: 9335,
+		Qoder: 9336, Paseo: 9337, Manus: 9338, Claude: 9339,
 	}
-	return ports
 }
 
 // Capabilities lists which settings an application supports.
@@ -369,6 +369,15 @@ func NormalizeMenuOrder(input any) []FeatureId {
 			at = qoder
 		}
 		saved = append(saved[:at], append([]FeatureId{Dsh}, saved[at:]...)...)
+	}
+	if len(saved) > 0 && !contains(saved, Claude) {
+		at := len(saved)
+		if droid := indexOf(saved, Droid); droid >= 0 {
+			at = droid + 1
+		} else if zcode := indexOf(saved, Zcode); zcode >= 0 {
+			at = zcode
+		}
+		saved = append(saved[:at], append([]FeatureId{Claude}, saved[at:]...)...)
 	}
 	merged := append([]FeatureId(nil), saved...)
 	for _, id := range DefaultMenuOrder {

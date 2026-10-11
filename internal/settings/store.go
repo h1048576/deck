@@ -176,8 +176,13 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		prefs.Harness = harness
 	}
 	versionValue, _ := data["menuOrderVersion"].(float64)
-	if int(versionValue) == MenuOrderVersion {
+	switch int(versionValue) {
+	case MenuOrderVersion:
 		prefs.MenuOrder = NormalizeMenuOrder(data["menuOrder"])
+	case 2:
+		// 版本 2 的顺序里没有 Claude，或被补齐到了末尾；去掉后由补齐逻辑放到 Droid 之后。
+		saved, _ := data["menuOrder"].([]any)
+		prefs.MenuOrder = NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude }))
 	}
 	return prefs, nil
 }

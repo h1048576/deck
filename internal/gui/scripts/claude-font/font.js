@@ -1,5 +1,5 @@
 // 在 Claude Desktop 内容页的开发者工具 Console 或 Snippet 中执行。
-// 仅更改字体名称；页面刷新或应用重启后需要重新执行。
+// 更改字体，并去掉行内代码的红色；页面刷新或应用重启后需要重新执行。
 (() => {
   const fontFamily = 'Cascadia Mono, LXGW WenKai Mono'
   const key = '__deckClaudeFont'
@@ -44,6 +44,10 @@
       }
       body, body :not(svg):not(svg *):not(math):not(math *):not(.katex):not(.katex *):not([data-cds=Icon]) {
         font-family: ${family} !important;
+      }
+      /* 行内代码默认用红色（--cds-text-danger），改为跟随正文；链接和按钮里的文件路径保留强调色。 */
+      code:not(pre code):not(:is(a, button, [role=button]) code) {
+        color: inherit !important;
       }
     `
     active = true
