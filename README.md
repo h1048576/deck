@@ -177,6 +177,23 @@ $env:DECK_CONFIG_DIR = 'D:\deck-data'
 - 写入前会把原文件备份到 `terminal-backups`，并保留原有注释和格式。
 - 路径列表为空或缺失时恢复为上面的三个默认路径。
 
+“终端”分组的窗口大小保存在 `terminal.windowSize`，格式为“列数x行数”，修改后会写入同一批配置文件根节点的 `initialCols` 和 `initialRows`。下拉框的选项来自 `terminal.windowSizeOptions`，没有界面入口，请在退出 deck 后直接编辑，下次启动生效：
+
+```json
+"terminal": {
+  "windowSize": "168x48",
+  "windowSizeOptions": [
+    "120x30",
+    "168x48"
+  ]
+}
+```
+
+- 列数和行数须为 1–999 的整数，分隔符可写 `x`、`X`、`×` 或 `*`，保存时统一为 `168x48` 这种格式。
+- 无效项和重复项会被忽略；列表为空或缺失时恢复为上面的默认列表。
+- 下拉框只提供候选，输入框仍可直接填写列表外的大小。
+- 只影响之后新打开的 Windows Terminal 窗口。
+
 AI 工具自身的指令、技能、模型和 MCP 配置仍位于各工具的用户目录。
 
 ## 目录结构

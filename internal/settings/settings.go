@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -64,17 +65,47 @@ type HarnessSettings struct {
 	McpsCollapsed   bool `json:"mcpsCollapsed"`
 }
 
-// TerminalSettings 配置 Windows Terminal 的字体。
+// TerminalSettings 配置 Windows Terminal 的字体和窗口大小。
 // SettingsPaths 可以使用 %LOCALAPPDATA% 等 Windows 环境变量，便于在不同电脑上通用。
 type TerminalSettings struct {
-	FontFamily    string   `json:"fontFamily"`
-	SettingsPaths []string `json:"settingsPaths"`
+	FontFamily string `json:"fontFamily"`
+	// WindowSize 格式为“列数x行数”，对应 Windows Terminal 的 initialCols 和 initialRows。
+	WindowSize string `json:"windowSize"`
+	// WindowSizeOptions 是窗口大小下拉框的选项，只能直接编辑 setting.json。
+	WindowSizeOptions []string `json:"windowSizeOptions"`
+	SettingsPaths     []string `json:"settingsPaths"`
+}
+
+// WindowSizeError 是终端窗口大小无效时的提示。
+const WindowSizeError = "请按“列数x行数”填写窗口大小，例如 120x30，列数和行数须为 1–999 的整数"
+
+var windowSizeRegexp = regexp.MustCompile(`^\s*([0-9]{1,3})\s*[xX×*]\s*([0-9]{1,3})\s*$`)
+
+// ParseWindowSize 解析“列数x行数”格式的终端窗口大小，返回列数、行数和规范化后的文本。
+func ParseWindowSize(value string) (cols int, rows int, normalized string, ok bool) {
+	match := windowSizeRegexp.FindStringSubmatch(value)
+	if match == nil {
+		return 0, 0, "", false
+	}
+	cols, _ = strconv.Atoi(match[1])
+	rows, _ = strconv.Atoi(match[2])
+	if cols < 1 || cols > 999 || rows < 1 || rows > 999 {
+		return 0, 0, "", false
+	}
+	return cols, rows, fmt.Sprintf("%dx%d", cols, rows), true
+}
+
+// DefaultWindowSizeOptions 是终端窗口大小下拉框的默认选项，120x30 是 Windows Terminal 自带的默认值。
+func DefaultWindowSizeOptions() []string {
+	return []string{"120x30", "168x48"}
 }
 
 // DefaultTerminal 对应正式版、预览版和 Canary 版 Windows Terminal。
 func DefaultTerminal() TerminalSettings {
 	return TerminalSettings{
-		FontFamily: "Cascadia Mono, LXGW WenKai Mono",
+		FontFamily:        "Cascadia Mono, LXGW WenKai Mono",
+		WindowSize:        "120x30",
+		WindowSizeOptions: DefaultWindowSizeOptions(),
 		SettingsPaths: []string{
 			`%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json`,
 			`%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json`,
@@ -93,6 +124,23 @@ func ParseTerminal(input any) TerminalSettings {
 	}
 	if font, ok := data["fontFamily"].(string); ok && ValidFontFamily(font) {
 		value.FontFamily = strings.TrimSpace(font)
+	}
+	if size, ok := data["windowSize"].(string); ok {
+		if _, _, normalized, ok := ParseWindowSize(size); ok {
+			value.WindowSize = normalized
+		}
+	}
+	if list, ok := data["windowSizeOptions"].([]any); ok {
+		options := make([]string, 0, len(list))
+		for _, item := range list {
+			size, _ := item.(string)
+			if _, _, normalized, ok := ParseWindowSize(size); ok && !slices.Contains(options, normalized) {
+				options = append(options, normalized)
+			}
+		}
+		if len(options) > 0 {
+			value.WindowSizeOptions = options
+		}
 	}
 	if list, ok := data["settingsPaths"].([]any); ok {
 		paths := make([]string, 0, len(list))

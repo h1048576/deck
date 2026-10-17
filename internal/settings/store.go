@@ -54,6 +54,7 @@ func clonePreferences(prefs Preferences) Preferences {
 	prefs.Applications = maps.Clone(prefs.Applications)
 	prefs.MenuOrder = slices.Clone(prefs.MenuOrder)
 	prefs.FontOptions = slices.Clone(prefs.FontOptions)
+	prefs.Terminal.WindowSizeOptions = slices.Clone(prefs.Terminal.WindowSizeOptions)
 	prefs.Terminal.SettingsPaths = slices.Clone(prefs.Terminal.SettingsPaths)
 	if prefs.OpenAtLogin != nil {
 		enabled := *prefs.OpenAtLogin

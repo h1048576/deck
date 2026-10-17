@@ -30,7 +30,14 @@ type terminalConfig struct {
 	Resolved string `json:"resolved"`
 	Exists   bool   `json:"exists"`
 	Face     string `json:"face"`
+	Size     string `json:"size"`
 	Error    string `json:"error,omitempty"`
+}
+
+// terminalEdit 是一次要写入 Windows Terminal 配置的字段。
+type terminalEdit struct {
+	path  []any
+	value any
 }
 
 // terminalApplyResult 汇总一次字体修改在各配置文件上的结果。
@@ -98,10 +105,27 @@ func loadTerminalConfig(path string) (terminalConfig, []byte, *jsonc.Doc) {
 		config.Error = "配置文件格式无法解析"
 		return config, data, nil
 	}
+	readTerminalState(&config, doc)
+	return config, data, doc
+}
+
+func readTerminalState(config *terminalConfig, doc *jsonc.Doc) {
+	config.Face, config.Size = "", ""
 	if face, ok := doc.Get("profiles", "defaults", "font", "face"); ok {
 		config.Face, _ = face.(string)
 	}
-	return config, data, doc
+	cols, colsOK := doc.Get("initialCols")
+	rows, rowsOK := doc.Get("initialRows")
+	if colsOK || rowsOK {
+		config.Size = fmt.Sprintf("%vx%v", terminalSizeValue(cols, colsOK), terminalSizeValue(rows, rowsOK))
+	}
+}
+
+func terminalSizeValue(value any, ok bool) string {
+	if number, isNumber := value.(float64); ok && isNumber {
+		return fmt.Sprintf("%g", number)
+	}
+	return "?"
 }
 
 func terminalConfigs(paths []string) []terminalConfig {
@@ -155,8 +179,29 @@ func terminalFaceTargets(doc *jsonc.Doc) [][]any {
 	return targets
 }
 
-// applyTerminalFace 修改一个配置文件，返回 updated、unchanged、missing 或 error。
-func applyTerminalFace(path string, face string) (terminalConfig, string) {
+func terminalFaceEdits(face string) func(doc *jsonc.Doc) []terminalEdit {
+	return func(doc *jsonc.Doc) []terminalEdit {
+		targets := terminalFaceTargets(doc)
+		edits := make([]terminalEdit, 0, len(targets))
+		for _, target := range targets {
+			edits = append(edits, terminalEdit{path: target, value: face})
+		}
+		return edits
+	}
+}
+
+// terminalSizeEdits 修改根节点的 initialCols 和 initialRows，Windows Terminal 用它们决定新窗口的列数和行数。
+func terminalSizeEdits(cols int, rows int) func(doc *jsonc.Doc) []terminalEdit {
+	return func(*jsonc.Doc) []terminalEdit {
+		return []terminalEdit{
+			{path: []any{"initialCols"}, value: float64(cols)},
+			{path: []any{"initialRows"}, value: float64(rows)},
+		}
+	}
+}
+
+// applyTerminalEdits 修改一个配置文件，返回 updated、unchanged、missing 或 error。
+func applyTerminalEdits(path string, editsOf func(doc *jsonc.Doc) []terminalEdit) (terminalConfig, string) {
 	config, data, doc := loadTerminalConfig(path)
 	if config.Error != "" {
 		return config, "error"
@@ -167,17 +212,17 @@ func applyTerminalFace(path string, face string) (terminalConfig, string) {
 	text := string(bytes.TrimPrefix(data, utf8BOM))
 	format := jsonc.DetectFormatOf(text)
 	updated := text
-	for _, target := range terminalFaceTargets(doc) {
+	for _, edit := range editsOf(doc) {
 		current, err := jsonc.ParseDoc(updated)
 		if err != nil {
 			config.Error = "配置文件格式无法解析"
 			return config, "error"
 		}
-		if value, ok := current.Get(target...); ok && value == face {
+		if value, ok := current.Get(edit.path...); ok && value == edit.value {
 			continue
 		}
-		if updated, err = current.Set(target, face, format); err != nil {
-			config.Error = "无法修改字体字段：" + err.Error()
+		if updated, err = current.Set(edit.path, edit.value, format); err != nil {
+			config.Error = "无法修改配置字段：" + err.Error()
 			return config, "error"
 		}
 	}
@@ -192,7 +237,9 @@ func applyTerminalFace(path string, face string) (terminalConfig, string) {
 		config.Error = err.Error()
 		return config, "error"
 	}
-	config.Face = face
+	if current, err := jsonc.ParseDoc(updated); err == nil {
+		readTerminalState(&config, current)
+	}
 	return config, "updated"
 }
 
@@ -227,12 +274,20 @@ func writeTerminalConfig(config terminalConfig, original []byte, output []byte) 
 
 // applyTerminalFont 把字体写入所有已配置的 Windows Terminal 配置文件。
 func applyTerminalFont(paths []string, fontFamily string) terminalApplyResult {
-	face := terminalFace(fontFamily)
+	return applyTerminalSettings(paths, "已是该字体", terminalFaceEdits(terminalFace(fontFamily)))
+}
+
+// applyTerminalWindowSize 把窗口大小写入所有已配置的 Windows Terminal 配置文件。
+func applyTerminalWindowSize(paths []string, cols int, rows int) terminalApplyResult {
+	return applyTerminalSettings(paths, "已是该窗口大小", terminalSizeEdits(cols, rows))
+}
+
+func applyTerminalSettings(paths []string, unchangedText string, editsOf func(doc *jsonc.Doc) []terminalEdit) terminalApplyResult {
 	result := terminalApplyResult{Success: true, Configs: make([]terminalConfig, 0, len(paths))}
 	updated, unchanged, missing := 0, 0, 0
 	failures := []string{}
 	for _, path := range paths {
-		config, status := applyTerminalFace(path, face)
+		config, status := applyTerminalEdits(path, editsOf)
 		result.Configs = append(result.Configs, config)
 		switch status {
 		case "updated":
@@ -255,7 +310,7 @@ func applyTerminalFont(paths []string, fontFamily string) terminalApplyResult {
 		parts = append(parts, fmt.Sprintf("已更新 %d 个 Windows Terminal 配置", updated))
 	}
 	if unchanged > 0 {
-		parts = append(parts, fmt.Sprintf("%d 个已是该字体", unchanged))
+		parts = append(parts, fmt.Sprintf("%d 个%s", unchanged, unchangedText))
 	}
 	if missing > 0 {
 		parts = append(parts, fmt.Sprintf("%d 个未安装，已跳过", missing))

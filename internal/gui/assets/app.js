@@ -49,7 +49,7 @@ const DEFAULT_APPLICATIONS = {
 }
 const DEFAULT_APPEARANCE = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, mode: 'compact' }
 const DEFAULT_FONT_OPTIONS = ['default', 'Cascadia Mono, LXGW WenKai Mono', 'Maple Mono Normal NF CN']
-const DEFAULT_TERMINAL = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', settingsPaths: [] }
+const DEFAULT_TERMINAL = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', windowSize: '120x30', windowSizeOptions: ['120x30', '168x48'], settingsPaths: [] }
 const DEFAULT_HARNESS_SETTINGS = { skillsCollapsed: true, modelsCollapsed: true, mcpsCollapsed: true }
 const SYSTEM_FONT = '"Segoe UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif'
 const BATCH_ACTION_LABELS = { start: '启动', restart: '重启', exit: '退出' }
@@ -120,6 +120,12 @@ function settingsErrors(value) {
 
 function terminalFontError(value) {
   return typeof value !== 'string' || !value.trim() || value.length > 300 || /[;{}<>\r\n]/.test(value) ? '请填写字体名称，不能包含 CSS 控制字符' : ''
+}
+
+// 与后端 settings.ParseWindowSize 一致：列数x行数，均为 1–999。
+function terminalWindowSizeError(value) {
+  const match = /^\s*([0-9]{1,3})\s*[xX×*]\s*([0-9]{1,3})\s*$/.exec(typeof value === 'string' ? value : '')
+  return match && Number(match[1]) >= 1 && Number(match[2]) >= 1 ? '' : '请按“列数x行数”填写窗口大小，例如 120x30，列数和行数须为 1–999 的整数'
 }
 
 function appearanceErrors(value) {
@@ -865,12 +871,15 @@ function renderTerminalSection() {
       text.appendChild(el('small', 'terminal-config-path', config.path))
       name.appendChild(text)
       row.appendChild(name)
-      const status = config.error || (!config.exists ? '未安装' : config.face || '未设置字体')
+      const status = config.error || (!config.exists ? '未安装' : [config.face || '未设置字体', config.size].filter(Boolean).join(' · '))
       row.appendChild(el('span', `terminal-config-status ${config.error ? 'error' : config.exists ? 'connected' : ''}`, status))
       configList.appendChild(row)
     })
     list.appendChild(configList)
   }
+  const sizeError = terminalWindowSizeError(state.terminal.windowSize)
+  const size = FontControl({ id: 'terminal-windowSize', label: 'Windows Terminal 窗口大小', value: state.terminal.windowSize, fonts: state.terminal.windowSizeOptions, disabled: !state.ready || !!state.bootError, error: sizeError, onChange: value => updateTerminalWindowSize(value) })
+  list.appendChild(SettingRow('窗口大小', 'terminal-windowSize', sizeError, size.node))
   section.appendChild(list)
   return section
 }
@@ -897,6 +906,26 @@ function updateTerminalFont(value) {
     persist('terminal', async () => {
       const result = await api('terminal', { fontFamily: value })
       if (revision !== terminalRevision) return
+      state.terminalConfigs = result.configs
+      state.terminalConfigsError = ''
+      state.notice = { text: result.message, error: !result.success }
+      renderToast()
+    })
+  }, 600)
+}
+
+let terminalSizeTimer = null
+let terminalSizeRevision = 0
+
+function updateTerminalWindowSize(value) {
+  state.terminal = { ...state.terminal, windowSize: value }
+  clearTimeout(terminalSizeTimer)
+  if (terminalWindowSizeError(value)) return
+  terminalSizeTimer = setTimeout(() => {
+    const revision = ++terminalSizeRevision
+    persist('terminalWindowSize', async () => {
+      const result = await api('terminal-window-size', { windowSize: value })
+      if (revision !== terminalSizeRevision) return
       state.terminalConfigs = result.configs
       state.terminalConfigsError = ''
       state.notice = { text: result.message, error: !result.success }

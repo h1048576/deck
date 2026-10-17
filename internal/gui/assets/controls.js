@@ -256,7 +256,7 @@ export function EditableSelectControl({ id, label, value, disabled = false, opti
   return { node: anchor, update }
 }
 
-// fonts 来自 setting.json 的 fontOptions；输入框仍可填写列表外的字体。
+// fonts 是下拉候选（字体来自 fontOptions，终端窗口大小来自 terminal.windowSizeOptions）；输入框仍可填写列表外的值。
 export function FontControl({ id, value, disabled, error, onChange, fonts = [], label }) {
   const options = fonts.map(font => ({ value: font, label: font }))
   const resolvedLabel = label ?? '字体'

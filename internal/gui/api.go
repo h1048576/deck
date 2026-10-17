@@ -563,6 +563,30 @@ func (h *host) buildRouter() *http.ServeMux {
 		}
 		writeJSON(rw, http.StatusOK, applyTerminalFont(h.store.Prefs().Terminal.SettingsPaths, fontFamily))
 	})
+	mux.HandleFunc("POST /api/terminal-window-size", func(rw http.ResponseWriter, r *http.Request) {
+		var body struct {
+			WindowSize string `json:"windowSize"`
+		}
+		if err := decodeBody(r, &body); err != nil {
+			writeError(rw, err)
+			return
+		}
+		cols, rows, windowSize, ok := settings.ParseWindowSize(body.WindowSize)
+		if !ok {
+			writeError(rw, fmt.Errorf("%s", settings.WindowSizeError))
+			return
+		}
+		h.terminalMu.Lock()
+		defer h.terminalMu.Unlock()
+		if err := <-h.store.Update(func(current settings.Preferences) settings.Preferences {
+			current.Terminal.WindowSize = windowSize
+			return current
+		}); err != nil {
+			writeError(rw, err)
+			return
+		}
+		writeJSON(rw, http.StatusOK, applyTerminalWindowSize(h.store.Prefs().Terminal.SettingsPaths, cols, rows))
+	})
 	mux.HandleFunc("POST /api/menu-order", func(rw http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Order any `json:"order"`
