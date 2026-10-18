@@ -25,13 +25,16 @@ var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
 // terminalConfig 是一个 Windows Terminal 配置文件的状态。
 type terminalConfig struct {
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	Resolved string `json:"resolved"`
-	Exists   bool   `json:"exists"`
-	Face     string `json:"face"`
-	Size     string `json:"size"`
-	Error    string `json:"error,omitempty"`
+	Name     string  `json:"name"`
+	Path     string  `json:"path"`
+	Resolved string  `json:"resolved"`
+	Exists   bool    `json:"exists"`
+	Face     string  `json:"face"`
+	FontSize float64 `json:"fontSize,omitempty"`
+	// FontWeight 可能是数字，也可能是 "normal"、"bold" 这类名称。
+	FontWeight string `json:"fontWeight,omitempty"`
+	Size       string `json:"size"`
+	Error      string `json:"error,omitempty"`
 }
 
 // terminalEdit 是一次要写入 Windows Terminal 配置的字段。
@@ -110,9 +113,20 @@ func loadTerminalConfig(path string) (terminalConfig, []byte, *jsonc.Doc) {
 }
 
 func readTerminalState(config *terminalConfig, doc *jsonc.Doc) {
-	config.Face, config.Size = "", ""
+	config.Face, config.FontSize, config.FontWeight, config.Size = "", 0, "", ""
+	if weight, ok := doc.Get("profiles", "defaults", "font", "weight"); ok {
+		switch value := weight.(type) {
+		case float64:
+			config.FontWeight = fmt.Sprintf("%g", value)
+		case string:
+			config.FontWeight = value
+		}
+	}
 	if face, ok := doc.Get("profiles", "defaults", "font", "face"); ok {
 		config.Face, _ = face.(string)
+	}
+	if size, ok := doc.Get("profiles", "defaults", "font", "size"); ok {
+		config.FontSize, _ = size.(float64)
 	}
 	cols, colsOK := doc.Get("initialCols")
 	rows, rowsOK := doc.Get("initialRows")
@@ -137,9 +151,9 @@ func terminalConfigs(paths []string) []terminalConfig {
 	return configs
 }
 
-// terminalFaceTargets 列出需要修改的 face 字段。
-// profiles.defaults.font.face 不存在时会被创建；单个 profile 自己设置的字体会覆盖默认值，存在时一起修改。
-func terminalFaceTargets(doc *jsonc.Doc) [][]any {
+// terminalFontTargets 列出需要修改的字体字段，key 是 font 对象里的字段名，legacyKey 是旧版平铺写法的字段名。
+// profiles.defaults.font.<key> 不存在时会被创建；单个 profile 自己设置的值会覆盖默认值，存在时一起修改。
+func terminalFontTargets(doc *jsonc.Doc, key string, legacyKey string) [][]any {
 	targets := [][]any{}
 	var list []any
 	var prefix []any
@@ -149,11 +163,11 @@ func terminalFaceTargets(doc *jsonc.Doc) [][]any {
 		// 旧版配置的 profiles 直接是数组，没有 defaults。
 		list, prefix = value, []any{"profiles"}
 	default:
-		targets = append(targets, []any{"profiles", "defaults", "font", "face"})
+		targets = append(targets, []any{"profiles", "defaults", "font", key})
 		if object, ok := value.(*jsonc.Obj); ok {
 			if defaults, ok := object.Get("defaults"); ok {
-				if defaultsObject, ok := defaults.(*jsonc.Obj); ok && defaultsObject.Has("fontFace") {
-					targets = append(targets, []any{"profiles", "defaults", "fontFace"})
+				if defaultsObject, ok := defaults.(*jsonc.Obj); ok && defaultsObject.Has(legacyKey) {
+					targets = append(targets, []any{"profiles", "defaults", legacyKey})
 				}
 			}
 			if items, ok := object.Get("list"); ok {
@@ -168,23 +182,23 @@ func terminalFaceTargets(doc *jsonc.Doc) [][]any {
 			continue
 		}
 		if font, ok := profile.Get("font"); ok {
-			if fontObject, ok := font.(*jsonc.Obj); ok && fontObject.Has("face") {
-				targets = append(targets, append(slices.Clone(prefix), index, "font", "face"))
+			if fontObject, ok := font.(*jsonc.Obj); ok && fontObject.Has(key) {
+				targets = append(targets, append(slices.Clone(prefix), index, "font", key))
 			}
 		}
-		if profile.Has("fontFace") {
-			targets = append(targets, append(slices.Clone(prefix), index, "fontFace"))
+		if profile.Has(legacyKey) {
+			targets = append(targets, append(slices.Clone(prefix), index, legacyKey))
 		}
 	}
 	return targets
 }
 
-func terminalFaceEdits(face string) func(doc *jsonc.Doc) []terminalEdit {
+func terminalFontEdits(key string, legacyKey string, value any) func(doc *jsonc.Doc) []terminalEdit {
 	return func(doc *jsonc.Doc) []terminalEdit {
-		targets := terminalFaceTargets(doc)
+		targets := terminalFontTargets(doc, key, legacyKey)
 		edits := make([]terminalEdit, 0, len(targets))
 		for _, target := range targets {
-			edits = append(edits, terminalEdit{path: target, value: face})
+			edits = append(edits, terminalEdit{path: target, value: value})
 		}
 		return edits
 	}
@@ -274,7 +288,17 @@ func writeTerminalConfig(config terminalConfig, original []byte, output []byte) 
 
 // applyTerminalFont 把字体写入所有已配置的 Windows Terminal 配置文件。
 func applyTerminalFont(paths []string, fontFamily string) terminalApplyResult {
-	return applyTerminalSettings(paths, "已是该字体", terminalFaceEdits(terminalFace(fontFamily)))
+	return applyTerminalSettings(paths, "已是该字体", terminalFontEdits("face", "fontFace", terminalFace(fontFamily)))
+}
+
+// applyTerminalFontWeight 把字重写入所有已配置的 Windows Terminal 配置文件。
+func applyTerminalFontWeight(paths []string, fontWeight int) terminalApplyResult {
+	return applyTerminalSettings(paths, "已是该字重", terminalFontEdits("weight", "fontWeight", float64(fontWeight)))
+}
+
+// applyTerminalFontSize 把字号写入所有已配置的 Windows Terminal 配置文件。
+func applyTerminalFontSize(paths []string, fontSize int) terminalApplyResult {
+	return applyTerminalSettings(paths, "已是该字号", terminalFontEdits("size", "fontSize", float64(fontSize)))
 }
 
 // applyTerminalWindowSize 把窗口大小写入所有已配置的 Windows Terminal 配置文件。

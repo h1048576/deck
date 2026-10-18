@@ -177,6 +177,10 @@ $env:DECK_CONFIG_DIR = 'D:\deck-data'
 - 写入前会把原文件备份到 `terminal-backups`，并保留原有注释和格式。
 - 路径列表为空或缺失时恢复为上面的三个默认路径。
 
+“终端”分组的字号保存在 `terminal.fontSize`（单位为磅，6–72 的整数，默认 12），修改后会写入同一批配置文件的 `profiles.defaults.font.size`；某个 profile 自己设置了字号时也会一起修改。
+
+“终端”分组的字重保存在 `terminal.fontWeight`（100–950 的整数，默认 100），修改后会写入同一批配置文件的 `profiles.defaults.font.weight`；某个 profile 自己设置了字重时也会一起修改。
+
 “终端”分组的窗口大小保存在 `terminal.windowSize`，格式为“列数x行数”，修改后会写入同一批配置文件根节点的 `initialCols` 和 `initialRows`。下拉框的选项来自 `terminal.windowSizeOptions`，没有界面入口，请在退出 deck 后直接编辑，下次启动生效：
 
 ```json

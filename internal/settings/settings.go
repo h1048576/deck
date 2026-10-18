@@ -69,11 +69,31 @@ type HarnessSettings struct {
 // SettingsPaths 可以使用 %LOCALAPPDATA% 等 Windows 环境变量，便于在不同电脑上通用。
 type TerminalSettings struct {
 	FontFamily string `json:"fontFamily"`
+	// FontSize 单位为磅，对应 Windows Terminal 的 font.size。
+	FontSize int `json:"fontSize"`
+	// FontWeight 对应 Windows Terminal 的 font.weight，取 OpenType 字重数值。
+	FontWeight int `json:"fontWeight"`
 	// WindowSize 格式为“列数x行数”，对应 Windows Terminal 的 initialCols 和 initialRows。
 	WindowSize string `json:"windowSize"`
 	// WindowSizeOptions 是窗口大小下拉框的选项，只能直接编辑 setting.json。
 	WindowSizeOptions []string `json:"windowSizeOptions"`
 	SettingsPaths     []string `json:"settingsPaths"`
+}
+
+// TerminalFontSizeError 是终端字号无效时的提示。
+const TerminalFontSizeError = "字号须为 6–72 的整数"
+
+// ValidTerminalFontSize 检查终端字号是否在允许范围内。
+func ValidTerminalFontSize(size int) bool {
+	return size >= 6 && size <= 72
+}
+
+// TerminalFontWeightError 是终端字重无效时的提示。
+const TerminalFontWeightError = "字重须为 100–950 的整数"
+
+// ValidTerminalFontWeight 检查终端字重是否在 DirectWrite 支持的范围内（Thin 100 到 Extra Black 950）。
+func ValidTerminalFontWeight(weight int) bool {
+	return weight >= 100 && weight <= 950
 }
 
 // WindowSizeError 是终端窗口大小无效时的提示。
@@ -104,6 +124,8 @@ func DefaultWindowSizeOptions() []string {
 func DefaultTerminal() TerminalSettings {
 	return TerminalSettings{
 		FontFamily:        "Cascadia Mono, LXGW WenKai Mono",
+		FontSize:          12,
+		FontWeight:        100,
 		WindowSize:        "120x30",
 		WindowSizeOptions: DefaultWindowSizeOptions(),
 		SettingsPaths: []string{
@@ -124,6 +146,12 @@ func ParseTerminal(input any) TerminalSettings {
 	}
 	if font, ok := data["fontFamily"].(string); ok && ValidFontFamily(font) {
 		value.FontFamily = strings.TrimSpace(font)
+	}
+	if size, ok := data["fontSize"].(float64); ok && size == float64(int(size)) && ValidTerminalFontSize(int(size)) {
+		value.FontSize = int(size)
+	}
+	if weight, ok := data["fontWeight"].(float64); ok && weight == float64(int(weight)) && ValidTerminalFontWeight(int(weight)) {
+		value.FontWeight = int(weight)
 	}
 	if size, ok := data["windowSize"].(string); ok {
 		if _, _, normalized, ok := ParseWindowSize(size); ok {

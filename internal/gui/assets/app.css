@@ -289,6 +289,7 @@ input[type='number']:focus:not(:disabled)::-webkit-inner-spin-button, input[type
 .setting-row:has(.font-control) .setting-label { flex: 0 0 auto; }
 .setting-row:has(.font-control) .setting-value { flex: 1; max-width: none; }
 .font-control { position: relative; max-width: 100%; width: var(--text-field-width); }
+.font-control.numeric-width { width: var(--numeric-field-width); }
 .font-control input { width: 100%; text-align: right; padding-right: 35px; }
 .font-dropdown-button { position: absolute; right: 4px; top: 0; display: grid; place-items: center; width: 28px; height: 100%; border: 0; border-radius: 6px; background: transparent; color: var(--muted); opacity: 0; }
 .font-control:focus-within .font-dropdown-button:not(:disabled) { opacity: 1; }

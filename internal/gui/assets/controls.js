@@ -334,7 +334,7 @@ export function Switch(label, checked, disabled, onChange) {
   return button
 }
 
-export function PixelControl({ id, min, max, step = 1, value, placeholder, disabled, invalid, describedBy, onInput }) {
+export function PixelControl({ id, min, max, step = 1, unit = 'px', value, placeholder, disabled, invalid, describedBy, onInput }) {
   const wrap = el('div', 'dimension-control')
   const input = el('input', 'field-input dimension-number')
   input.id = id
@@ -349,9 +349,9 @@ export function PixelControl({ id, min, max, step = 1, value, placeholder, disab
   if (describedBy) input.setAttribute('aria-describedby', describedBy)
   input.addEventListener('input', () => onInput(input.value))
   wrap.appendChild(input)
-  const unit = el('span', 'dimension-unit', 'px')
-  if (disabled) unit.setAttribute('aria-disabled', 'true')
-  wrap.appendChild(unit)
+  const unitNode = el('span', 'dimension-unit', unit)
+  if (disabled) unitNode.setAttribute('aria-disabled', 'true')
+  wrap.appendChild(unitNode)
   return { node: wrap, input }
 }
 

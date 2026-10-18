@@ -49,7 +49,7 @@ const DEFAULT_APPLICATIONS = {
 }
 const DEFAULT_APPEARANCE = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, mode: 'compact' }
 const DEFAULT_FONT_OPTIONS = ['default', 'Cascadia Mono, LXGW WenKai Mono', 'Maple Mono Normal NF CN']
-const DEFAULT_TERMINAL = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', windowSize: '120x30', windowSizeOptions: ['120x30', '168x48'], settingsPaths: [] }
+const DEFAULT_TERMINAL = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 12, fontWeight: 100, windowSize: '120x30', windowSizeOptions: ['120x30', '168x48'], settingsPaths: [] }
 const DEFAULT_HARNESS_SETTINGS = { skillsCollapsed: true, modelsCollapsed: true, mcpsCollapsed: true }
 const SYSTEM_FONT = '"Segoe UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif'
 const BATCH_ACTION_LABELS = { start: '启动', restart: '重启', exit: '退出' }
@@ -120,6 +120,14 @@ function settingsErrors(value) {
 
 function terminalFontError(value) {
   return typeof value !== 'string' || !value.trim() || value.length > 300 || /[;{}<>\r\n]/.test(value) ? '请填写字体名称，不能包含 CSS 控制字符' : ''
+}
+
+function terminalFontSizeError(value) {
+  return Number.isInteger(value) && value >= 6 && value <= 72 ? '' : '字号须为 6–72 的整数'
+}
+
+function terminalFontWeightError(value) {
+  return Number.isInteger(value) && value >= 100 && value <= 950 ? '' : '字重须为 100–950 的整数'
 }
 
 // 与后端 settings.ParseWindowSize 一致：列数x行数，均为 1–999。
@@ -871,14 +879,31 @@ function renderTerminalSection() {
       text.appendChild(el('small', 'terminal-config-path', config.path))
       name.appendChild(text)
       row.appendChild(name)
-      const status = config.error || (!config.exists ? '未安装' : [config.face || '未设置字体', config.size].filter(Boolean).join(' · '))
+      const status = config.error || (!config.exists ? '未安装' : [config.face || '未设置字体', config.fontSize ? `${config.fontSize}pt` : '', config.fontWeight ? `字重 ${config.fontWeight}` : '', config.size].filter(Boolean).join(' · '))
       row.appendChild(el('span', `terminal-config-status ${config.error ? 'error' : config.exists ? 'connected' : ''}`, status))
       configList.appendChild(row)
     })
     list.appendChild(configList)
   }
+  const fontSizeError = terminalFontSizeError(state.terminal.fontSize)
+  const fontSize = PixelControl({ id: 'terminal-fontSize', min: 6, max: 72, unit: 'pt', value: state.terminal.fontSize, disabled: !state.ready || !!state.bootError, invalid: !!fontSizeError, describedBy: fontSizeError ? 'terminal-fontSize-error' : undefined, onInput: value => updateTerminalFontSize(Number(value)) })
+  list.appendChild(SettingRow('字号', 'terminal-fontSize', fontSizeError, fontSize.node))
+  const fontWeightError = terminalFontWeightError(state.terminal.fontWeight)
+  const weight = el('input', 'field-input number-input')
+  weight.id = 'terminal-fontWeight'
+  weight.type = 'number'
+  weight.min = '100'
+  weight.max = '950'
+  weight.step = '100'
+  weight.value = state.terminal.fontWeight
+  weight.disabled = !state.ready || !!state.bootError
+  if (fontWeightError) weight.setAttribute('aria-invalid', 'true')
+  if (fontWeightError) weight.setAttribute('aria-describedby', 'terminal-fontWeight-error')
+  weight.addEventListener('input', () => updateTerminalFontWeight(Number(weight.value)))
+  list.appendChild(SettingRow('字重', 'terminal-fontWeight', fontWeightError, weight))
   const sizeError = terminalWindowSizeError(state.terminal.windowSize)
   const size = FontControl({ id: 'terminal-windowSize', label: 'Windows Terminal 窗口大小', value: state.terminal.windowSize, fonts: state.terminal.windowSizeOptions, disabled: !state.ready || !!state.bootError, error: sizeError, onChange: value => updateTerminalWindowSize(value) })
+  size.node.classList.add('numeric-width')
   list.appendChild(SettingRow('窗口大小', 'terminal-windowSize', sizeError, size.node))
   section.appendChild(list)
   return section
@@ -906,6 +931,46 @@ function updateTerminalFont(value) {
     persist('terminal', async () => {
       const result = await api('terminal', { fontFamily: value })
       if (revision !== terminalRevision) return
+      state.terminalConfigs = result.configs
+      state.terminalConfigsError = ''
+      state.notice = { text: result.message, error: !result.success }
+      renderToast()
+    })
+  }, 600)
+}
+
+let terminalFontSizeTimer = null
+let terminalFontSizeRevision = 0
+
+function updateTerminalFontSize(value) {
+  state.terminal = { ...state.terminal, fontSize: value }
+  clearTimeout(terminalFontSizeTimer)
+  if (terminalFontSizeError(value)) return
+  terminalFontSizeTimer = setTimeout(() => {
+    const revision = ++terminalFontSizeRevision
+    persist('terminalFontSize', async () => {
+      const result = await api('terminal-font-size', { fontSize: value })
+      if (revision !== terminalFontSizeRevision) return
+      state.terminalConfigs = result.configs
+      state.terminalConfigsError = ''
+      state.notice = { text: result.message, error: !result.success }
+      renderToast()
+    })
+  }, 600)
+}
+
+let terminalFontWeightTimer = null
+let terminalFontWeightRevision = 0
+
+function updateTerminalFontWeight(value) {
+  state.terminal = { ...state.terminal, fontWeight: value }
+  clearTimeout(terminalFontWeightTimer)
+  if (terminalFontWeightError(value)) return
+  terminalFontWeightTimer = setTimeout(() => {
+    const revision = ++terminalFontWeightRevision
+    persist('terminalFontWeight', async () => {
+      const result = await api('terminal-font-weight', { fontWeight: value })
+      if (revision !== terminalFontWeightRevision) return
       state.terminalConfigs = result.configs
       state.terminalConfigsError = ''
       state.notice = { text: result.message, error: !result.success }

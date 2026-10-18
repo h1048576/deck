@@ -563,6 +563,54 @@ func (h *host) buildRouter() *http.ServeMux {
 		}
 		writeJSON(rw, http.StatusOK, applyTerminalFont(h.store.Prefs().Terminal.SettingsPaths, fontFamily))
 	})
+	mux.HandleFunc("POST /api/terminal-font-size", func(rw http.ResponseWriter, r *http.Request) {
+		var body struct {
+			FontSize float64 `json:"fontSize"`
+		}
+		if err := decodeBody(r, &body); err != nil {
+			writeError(rw, err)
+			return
+		}
+		fontSize := int(body.FontSize)
+		if body.FontSize != float64(fontSize) || !settings.ValidTerminalFontSize(fontSize) {
+			writeError(rw, fmt.Errorf("%s", settings.TerminalFontSizeError))
+			return
+		}
+		h.terminalMu.Lock()
+		defer h.terminalMu.Unlock()
+		if err := <-h.store.Update(func(current settings.Preferences) settings.Preferences {
+			current.Terminal.FontSize = fontSize
+			return current
+		}); err != nil {
+			writeError(rw, err)
+			return
+		}
+		writeJSON(rw, http.StatusOK, applyTerminalFontSize(h.store.Prefs().Terminal.SettingsPaths, fontSize))
+	})
+	mux.HandleFunc("POST /api/terminal-font-weight", func(rw http.ResponseWriter, r *http.Request) {
+		var body struct {
+			FontWeight float64 `json:"fontWeight"`
+		}
+		if err := decodeBody(r, &body); err != nil {
+			writeError(rw, err)
+			return
+		}
+		fontWeight := int(body.FontWeight)
+		if body.FontWeight != float64(fontWeight) || !settings.ValidTerminalFontWeight(fontWeight) {
+			writeError(rw, fmt.Errorf("%s", settings.TerminalFontWeightError))
+			return
+		}
+		h.terminalMu.Lock()
+		defer h.terminalMu.Unlock()
+		if err := <-h.store.Update(func(current settings.Preferences) settings.Preferences {
+			current.Terminal.FontWeight = fontWeight
+			return current
+		}); err != nil {
+			writeError(rw, err)
+			return
+		}
+		writeJSON(rw, http.StatusOK, applyTerminalFontWeight(h.store.Prefs().Terminal.SettingsPaths, fontWeight))
+	})
 	mux.HandleFunc("POST /api/terminal-window-size", func(rw http.ResponseWriter, r *http.Request) {
 		var body struct {
 			WindowSize string `json:"windowSize"`
