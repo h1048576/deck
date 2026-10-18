@@ -371,8 +371,12 @@ func (rt *applicationRuntime) connectPages(id string, port int, s settings.Droid
 	deadline := time.Now().Add(60 * time.Second)
 	var lastErr error = fmt.Errorf("应用没有提供可用的调试页面。")
 	for {
-		err := rt.connection(id).connect(port, source, LogFunc(report))
+		connection := rt.connection(id)
+		err := connection.connect(port, source, LogFunc(report))
 		if err == nil {
+			if settings.Applications[id].Credits && s.ShowWorkbuddyCredits {
+				watchWorkbuddyCredits(connection)
+			}
 			return nil
 		}
 		lastErr = err

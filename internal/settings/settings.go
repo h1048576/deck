@@ -49,6 +49,8 @@ type DroidSettings struct {
 	ExecutablePath string `json:"executablePath"`
 	HideChanges    bool   `json:"hideChanges"`
 	PreventSummary bool   `json:"preventSummary"`
+	// ShowWorkbuddyCredits 在 DSH 底部 context 用量后、WorkBuddy 输入框上下文用量左侧显示 WorkBuddy 积分。
+	ShowWorkbuddyCredits bool `json:"showWorkbuddyCredits"`
 }
 
 // AppearanceSettings configures the deck window itself.
@@ -278,6 +280,7 @@ type Capabilities struct {
 	Changes    bool
 	Summary    bool
 	TerminalUI bool // whether the terminal follow switch is offered
+	Credits    bool // whether the WorkBuddy credits switch is offered
 	// FontScript 表示应用拒绝调试端口，字体只能通过复制到 DevTools 的脚本手动应用。
 	FontScript bool
 }
@@ -287,9 +290,9 @@ var Applications = map[FeatureId]Capabilities{
 	Codex:     {Name: "Codex", Sidebar: true, FontFamily: true, FontSize: true, Summary: true, TerminalUI: true},
 	Droid:     {Name: "Droid", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Zcode:     {Name: "ZCode", Sidebar: true, FontFamily: true, FontSize: true, Changes: true, TerminalUI: true},
-	Workbuddy: {Name: "WorkBuddy", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true},
+	Workbuddy: {Name: "WorkBuddy", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, Credits: true},
 	Manus:     {Name: "Manus", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true},
-	Dsh:       {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
+	Dsh:       {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true, Credits: true},
 	Qoder:     {Name: "Qoder", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Paseo:     {Name: "Paseo", Sidebar: true, Merge: true, Diff: true},
 	Claude:    {Name: "Claude", FontFamily: true, FontScript: true},
@@ -305,7 +308,8 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		return DroidSettings{
 			Width: "70vw", SidebarWidth: "15vw", MaxWidth: "90rem", ChatHeight: "80px",
 			FontFamily: "Cascadia Mono, LXGW WenKai Mono", FontSize: 17, FontWeight: 300, TerminalFollow: true,
-			Port: ports[id],
+			ShowWorkbuddyCredits: Applications[id].Credits,
+			Port:                 ports[id],
 		}
 	}
 	return map[FeatureId]DroidSettings{
@@ -450,6 +454,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if _, ok := input["terminalFollow"]; !ok {
 		input["terminalFollow"] = fallback.TerminalFollow
 	}
+	if _, ok := input["showWorkbuddyCredits"]; !ok {
+		input["showWorkbuddyCredits"] = fallback.ShowWorkbuddyCredits
+	}
 	var value DroidSettings
 	schema := []struct {
 		key      string
@@ -473,6 +480,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		{"executablePath", "string", &value.ExecutablePath, nil, nil, defaultDroid.ExecutablePath},
 		{"hideChanges", "boolean", nil, nil, &value.HideChanges, defaultDroid.HideChanges},
 		{"preventSummary", "boolean", nil, nil, &value.PreventSummary, defaultDroid.PreventSummary},
+		{"showWorkbuddyCredits", "boolean", nil, nil, &value.ShowWorkbuddyCredits, defaultDroid.ShowWorkbuddyCredits},
 	}
 	for _, field := range schema {
 		raw, ok := input[field.key]
@@ -525,6 +533,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	}
 	if !capability.Summary {
 		value.PreventSummary = false
+	}
+	if !capability.Credits {
+		value.ShowWorkbuddyCredits = false
 	}
 	return value, nil
 }

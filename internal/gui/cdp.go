@@ -349,6 +349,19 @@ func (p *pageConnection) attachTarget(target cdpTarget, source string, log LogFu
 	return nil
 }
 
+// evaluateAll 在当前所有已连接页面中执行表达式，忽略单个页面的失败。
+func (p *pageConnection) evaluateAll(expression string) {
+	p.mu.Lock()
+	sessions := make([]*cdpConn, 0, len(p.sessions))
+	for _, session := range p.sessions {
+		sessions = append(sessions, session)
+	}
+	p.mu.Unlock()
+	for _, session := range sessions {
+		_, _, _ = session.evaluate(expression)
+	}
+}
+
 func (p *pageConnection) sessionLive(url string) string {
 	p.mu.Lock()
 	defer p.mu.Unlock()

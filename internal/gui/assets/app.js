@@ -20,30 +20,30 @@ const FEATURES = [
 const DEFAULT_MENU_ORDER = ['codex', 'droid', 'claude', 'zcode', 'workbuddy', 'dsh', 'qoder', 'paseo', 'manus']
 // fontScript：应用拒绝调试端口，只提供字体并复制脚本给用户在 DevTools 中执行。
 const APPLICATIONS = {
-  codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false },
-  droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false },
-  zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true, fontScript: false },
-  workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false },
-  manus: { name: 'Manus', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false },
-  claude: { name: 'Claude', sidebarWidth: false, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: false, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: true },
-  dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false },
-  qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false },
-  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false },
+  codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false, credits: false },
+  droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
+  zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true, fontScript: false, credits: false },
+  workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false, credits: true },
+  manus: { name: 'Manus', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
+  claude: { name: 'Claude', sidebarWidth: false, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: false, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: true, credits: false },
+  dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: true },
+  qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
+  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
 }
 const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338, claude: 9339 }
 const DEFAULT_DROID = {
   width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
   fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, fontWeight: 300, terminalFollow: true,
-  hideLocalMerge: false, hideGitDiff: false, hideChanges: false, preventSummary: false, port: 9332, executablePath: '',
+  hideLocalMerge: false, hideGitDiff: false, hideChanges: false, preventSummary: false, showWorkbuddyCredits: false, port: 9332, executablePath: '',
 }
 const DEFAULT_APPLICATIONS = {
   codex: { ...DEFAULT_DROID, fontWeight: 100, preventSummary: true, port: PORTS.codex },
   droid: { ...DEFAULT_DROID },
   zcode: { ...DEFAULT_DROID, fontSize: 18, hideChanges: true, port: PORTS.zcode },
-  workbuddy: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.workbuddy },
+  workbuddy: { ...DEFAULT_DROID, fontWeight: 200, showWorkbuddyCredits: true, port: PORTS.workbuddy },
   manus: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.manus },
   claude: { ...DEFAULT_DROID, port: PORTS.claude },
-  dsh: { ...DEFAULT_DROID, port: PORTS.dsh },
+  dsh: { ...DEFAULT_DROID, showWorkbuddyCredits: true, port: PORTS.dsh },
   qoder: { ...DEFAULT_DROID, port: PORTS.qoder },
   paseo: { ...DEFAULT_DROID, hideLocalMerge: true, hideGitDiff: true, port: PORTS.paseo },
 }
@@ -588,6 +588,9 @@ function renderApplicationPage(id) {
     if (capability.chatHeight) {
       const chat = PixelControl({ id: 'chatHeight', min: 0, max: 9999, step: 5, value: settings.chatHeight.endsWith('px') ? settings.chatHeight.slice(0, -2) : '', placeholder: !settings.chatHeight.endsWith('px') ? settings.chatHeight : undefined, ...inputProps('chatHeight'), onInput: value => update('chatHeight', `${value}px`) })
       layoutList.appendChild(SettingRow('输入框高度', 'chatHeight', errors.chatHeight, chat.node))
+    }
+    if (capability.credits) {
+      layoutList.appendChild(SettingRow('显示WorkBuddy积分', null, null, Switch('显示WorkBuddy积分', settings.showWorkbuddyCredits, disabled, value => update('showWorkbuddyCredits', value))))
     }
     layoutSection.appendChild(layoutList)
     page.appendChild(layoutSection)

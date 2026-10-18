@@ -133,5 +133,8 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 	if id == "zcode" || id == "qoder" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar
 	}
+	if id == "workbuddy" {
+		return layoutSource + " && " + sidebar + " && " + creditsInjection(id, s.ShowWorkbuddyCredits)
+	}
 	return layoutSource + " && " + sidebar
 }
