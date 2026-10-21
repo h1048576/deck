@@ -1,3 +1,6 @@
+// GOPATH 构建也使用支持请求方法的新版 HTTP 路由规则。
+//go:debug httpmuxgo121=0
+
 package main
 
 import (

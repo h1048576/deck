@@ -93,6 +93,8 @@ func dshInjection(s settings.DroidSettings) string {
 	sb.WriteString(creditsInjection("dsh", s.ShowWorkbuddyCredits))
 	sb.WriteString(";\n")
 	sb.WriteString(currentProjectInjection("dsh"))
+	sb.WriteString(";\n")
+	sb.WriteString(dshReasoningEffortSource)
 	sb.WriteString(`;
       // 原生框架将三列宽度写到内联样式；只替换左列，随原生渲染同步中列和右列。
       const syncLayout = () => {

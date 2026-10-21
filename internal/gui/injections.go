@@ -25,6 +25,12 @@ var codexCurrentProjectSource string
 //go:embed scripts/current-project.js
 var currentProjectSource string
 
+//go:embed scripts/zcode-wide/model-label.js
+var zcodeModelLabelSource string
+
+//go:embed scripts/dsh-wide/reasoning-effort.js
+var dshReasoningEffortSource string
+
 func currentProjectInjection(id string) string {
 	return strings.ReplaceAll(currentProjectSource, "__DECK_PROJECT_APP__", id)
 }
@@ -148,7 +154,7 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 	layoutSource := strings.TrimSpace(source)
 	layoutSource = strings.TrimSuffix(layoutSource, ";")
 	if id == "zcode" {
-		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id)
+		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
 	}
 	if id == "qoder" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar
