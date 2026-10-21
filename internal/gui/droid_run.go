@@ -31,7 +31,11 @@ func (d *droidRuntime) dispose() {
 }
 
 func (d *droidRuntime) connectPages(port int, s settings.DroidSettings, log LogFunc) error {
-	return d.connection.connect(port, droidInjectionSource(s), log)
+	if err := d.connection.connect(port, droidInjectionSource(s), log); err != nil {
+		return err
+	}
+	watchDroidUsage(d.connection)
+	return nil
 }
 
 func (d *droidRuntime) runWindows(action string, s settings.DroidSettings, log LogFunc, onStage func(string)) (int, error) {

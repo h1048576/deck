@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/base64"
@@ -37,6 +38,7 @@ func ExtractScripts(dir string) error {
 		if err != nil {
 			return err
 		}
+		content = withPowerShellBOM(path, content)
 		if existing, err := os.ReadFile(target); err == nil && string(existing) == string(content) {
 			return nil
 		}
@@ -45,6 +47,15 @@ func ExtractScripts(dir string) error {
 		}
 		return os.WriteFile(target, content, 0o644)
 	})
+}
+
+// Windows PowerShell 5.1 reads BOM-less .ps1 files in the ANSI code page (GBK on
+// Chinese systems), which garbles non-ASCII strings into parse errors.
+func withPowerShellBOM(path string, content []byte) []byte {
+	if !strings.EqualFold(filepath.Ext(path), ".ps1") || bytes.HasPrefix(content, utf8BOM) {
+		return content
+	}
+	return append(append(make([]byte, 0, len(utf8BOM)+len(content)), utf8BOM...), content...)
 }
 
 // ScriptPath returns the extracted path of a helper script.

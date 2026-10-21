@@ -273,6 +273,8 @@ body * {
     # JavaScript string is JSON-encoded to avoid quote/escape problems.
     $cssJson = $css | ConvertTo-Json -Compress
     $widthGuardSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'content-width.js') -Raw
+    $remainingUsageSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'remaining-usage.js') -Raw
+    $currentProjectSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'current-project.js') -Raw
     $script = @"
 (() => {
   const installSummaryAutoOpenGuard = () => {
@@ -356,6 +358,8 @@ body * {
     }
     style.textContent = $cssJson;
     $widthGuardSource
+    $remainingUsageSource
+    $currentProjectSource
     if ($PreventSummary) installSummaryAutoOpenGuard();
     return true;
   };

@@ -16,6 +16,19 @@ var injectionTemplatesJSON []byte
 //go:embed scripts/codex-wide/content-width.js
 var codexContentWidthSource string
 
+//go:embed scripts/codex-wide/remaining-usage.js
+var codexRemainingUsageSource string
+
+//go:embed scripts/codex-wide/current-project.js
+var codexCurrentProjectSource string
+
+//go:embed scripts/current-project.js
+var currentProjectSource string
+
+func currentProjectInjection(id string) string {
+	return strings.ReplaceAll(currentProjectSource, "__DECK_PROJECT_APP__", id)
+}
+
 // jsString renders a JS string literal exactly like JSON.stringify.
 func jsString(value string) string {
 	var buf strings.Builder
@@ -122,7 +135,11 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 		return value
 	})
 	source := strings.ReplaceAll(template.Source, "$cssJson", jsString(css))
-	source = strings.ReplaceAll(source, "$widthGuardSource", codexContentWidthSource)
+	widthGuardSource := codexContentWidthSource
+	if id == "codex" {
+		widthGuardSource += "\n" + codexRemainingUsageSource + "\n" + codexCurrentProjectSource
+	}
+	source = strings.ReplaceAll(source, "$widthGuardSource", widthGuardSource)
 	source = strings.ReplaceAll(source, "$PreventSummary", map[bool]string{true: "1", false: "0"}[s.PreventSummary])
 	sidebar := sidebarInjection(id, s.SidebarWidth)
 	if id == "workbuddy" {
@@ -130,7 +147,10 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 	}
 	layoutSource := strings.TrimSpace(source)
 	layoutSource = strings.TrimSuffix(layoutSource, ";")
-	if id == "zcode" || id == "qoder" {
+	if id == "zcode" {
+		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id)
+	}
+	if id == "qoder" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar
 	}
 	if id == "workbuddy" {

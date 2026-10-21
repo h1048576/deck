@@ -1,10 +1,14 @@
 package gui
 
 import (
+	_ "embed"
 	"strings"
 
 	"deck/internal/settings"
 )
+
+//go:embed scripts/droid-wide/composer.js
+var droidComposerSource string
 
 // droidInjectionSource builds Droid's combined style/terminal/sidebar script.
 func droidInjectionSource(s settings.DroidSettings) string {
@@ -43,6 +47,9 @@ func droidInjectionSource(s settings.DroidSettings) string {
 	sb.WriteString(`;
       `)
 	sb.WriteString(droidSidebarInjection(s.SidebarWidth))
+	sb.WriteString(`;
+      `)
+	sb.WriteString(strings.TrimSpace(droidComposerSource))
 	sb.WriteString(`;
       if (window.__droidWideContentGuard) { window.__droidWideContentGuard.scan(); return true; }
       const roots = new Set(); let scheduled = false;

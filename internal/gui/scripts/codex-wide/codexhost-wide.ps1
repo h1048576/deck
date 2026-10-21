@@ -364,6 +364,8 @@ $wideRendererSource = @'
 
   const apply = () => {
     applyWidth();
+    __REMAINING_USAGE_SOURCE__
+    __CURRENT_PROJECT_SOURCE__
     if (__PREVENT_SUMMARY__) installSummaryAutoOpenGuard();
   };
 
@@ -395,6 +397,14 @@ $wideRendererSource = $wideRendererSource.Replace(
 )
 
 $wideRendererSource = $wideRendererSource.Replace('__PREVENT_SUMMARY__', "$PreventSummary")
+$wideRendererSource = $wideRendererSource.Replace(
+    '__REMAINING_USAGE_SOURCE__',
+    (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'remaining-usage.js') -Raw)
+)
+$wideRendererSource = $wideRendererSource.Replace(
+    '__CURRENT_PROJECT_SOURCE__',
+    (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'current-project.js') -Raw)
+)
 
 # 每次运行都从当前安装版本的 CodexHost Renderer 生成组合文件，
 # 避免升级 CodexHost 后继续使用旧版 Renderer。
