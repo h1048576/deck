@@ -158,7 +158,57 @@ export function ModelEditorDialog({ editor, disabled, onCancel, onSubmit }) {
   nameControl.appendChild(nameRefresh)
   fieldsWrap.appendChild(SettingRow('名称', nameInput.id, null, nameControl))
 
-  if (harness === 'claude') fieldsWrap.appendChild(textInput('description', '描述'))
+  const defaultDescription = () => ((fields.model ?? '').trim().split('/').pop() || '').split('-')[0].trim()
+  let descriptionInput = null
+  let descriptionRefresh = null
+  if (harness === 'claude') {
+    descriptionInput = el('input', 'field-input model-text-input')
+    descriptionInput.id = `${prefix}-description`
+    descriptionInput.type = 'text'
+    descriptionInput.value = fields.description ?? ''
+    descriptionInput.disabled = disabled
+    descriptionInput.autocomplete = 'off'
+    descriptionInput.spellcheck = false
+    descriptionInput.addEventListener('input', () => { fields.description = descriptionInput.value })
+    descriptionRefresh = el('button', 'icon-button model-name-refresh')
+    descriptionRefresh.type = 'button'
+    descriptionRefresh.title = '从模型 ID 生成描述'
+    descriptionRefresh.setAttribute('aria-label', '从模型 ID 生成描述')
+    descriptionRefresh.disabled = disabled
+    descriptionRefresh.innerHTML = icon('refreshCw', 15)
+    descriptionRefresh.addEventListener('click', () => {
+      fields.description = defaultDescription()
+      descriptionInput.value = fields.description
+    })
+    const descriptionControl = el('div', 'model-name-control')
+    descriptionControl.appendChild(descriptionInput)
+    descriptionControl.appendChild(descriptionRefresh)
+    fieldsWrap.appendChild(SettingRow('描述', descriptionInput.id, null, descriptionControl))
+  }
+
+  // 新增时随模型 ID 补全默认值；手动编辑后保留用户输入。
+  if (!editor.target && !editor.copyFrom) {
+    const modelInput = fieldsWrap.querySelector(`#${prefix}-model`)
+    let nameEdited = !!fields.name
+    let descriptionEdited = !!fields.description
+    nameInput.addEventListener('input', () => { nameEdited = true })
+    nameRefresh.addEventListener('click', () => { nameEdited = true })
+    descriptionInput?.addEventListener('input', () => { descriptionEdited = true })
+    descriptionRefresh?.addEventListener('click', () => { descriptionEdited = true })
+    const fillDefaults = () => {
+      const last = (fields.model ?? '').trim().split('/').pop() || ''
+      if (!nameEdited) {
+        fields.name = last.replace(/\[1m\]/gi, '').trim()
+        nameInput.value = fields.name
+      }
+      if (descriptionInput && !descriptionEdited) {
+        fields.description = defaultDescription()
+        descriptionInput.value = fields.description
+      }
+    }
+    modelInput.addEventListener('input', fillDefaults)
+    fillDefaults()
+  }
 
   let providerSelect = null
   if (harness === 'droid') {
