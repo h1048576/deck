@@ -16,7 +16,7 @@ func dshInjection(s settings.DroidSettings) string {
 		if strings.HasSuffix(value, "%") {
 			parsed, err := strconv.ParseFloat(strings.TrimSuffix(value, "%"), 64)
 			if err == nil {
-				return "calc(var(--dsh-conversation-column-width, 100vw) * " + strconv.FormatFloat(parsed, 'f', -1, 64) + "/100)"
+				return "calc(var(--wide-dsh-conversation-column-width, 100vw) * " + strconv.FormatFloat(parsed, 'f', -1, 64) + "/100)"
 			}
 		}
 		return value
@@ -65,12 +65,35 @@ func dshInjection(s settings.DroidSettings) string {
     [data-composer-seat] {
       --dsh-composer-text-max-height: ` + s.ChatHeight + ` !important;
     }
-    [data-composer-input] {
+    /* ds-bot 通过此变量提供输入提示，连同占位节点一起隐藏。 */
+    body[style*="--bt-placeholder"] [data-composer-placeholder] {
+      display: none !important;
+    }
+    /* ds-bot 使用 !important 固定卡片宽度；优先使用 deck 的宽度变量。 */
+    :root [data-conversation-content] [data-composer-seat] [data-composer-card] {
+      max-width: min(100%, var(--dsh-composer-card-max-width)) !important;
+    }
+    :root [data-conversation-content] [data-composer-card] [data-composer-input] {
       box-sizing: border-box !important;
       height: ` + s.ChatHeight + ` !important;
       min-height: ` + s.ChatHeight + ` !important;
       max-height: ` + s.ChatHeight + ` !important;
       overflow-y: auto !important;
+    }
+    /* 保留群聊头像和气泡留白，移除插件额外的 560 / 590px 上限。 */
+    [data-conversation-content] .bt-msg,
+    [data-conversation-content] .bt-bubble {
+      max-width: min(80%, calc(100% - 82px)) !important;
+    }
+    [data-conversation-content] .bt-astack[data-lead] > .bt-msg {
+      max-width: min(calc(80% + 6px), calc(100% - 52px)) !important;
+    }
+    [data-conversation-content] .bt-msg-line > .bt-bubble {
+      max-width: none !important;
+    }
+    [data-conversation-content] .bt-ububble,
+    [data-conversation-content] .bt-think {
+      max-width: 78% !important;
     }
   `
 	var sb strings.Builder
@@ -96,8 +119,21 @@ func dshInjection(s settings.DroidSettings) string {
 	sb.WriteString(";\n")
 	sb.WriteString(dshReasoningEffortSource)
 	sb.WriteString(`;
+      // ds-bot 禁用了原生列宽变量的继承，独立测量内容区以支持百分比设置。
+      window.__wideDshContentResizeObserver?.disconnect();
+      const contentResizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          entry.target.style.setProperty('--wide-dsh-conversation-column-width', entry.contentRect.width + 'px');
+        }
+      });
+      const observedContents = new WeakSet();
       // 原生框架将三列宽度写到内联样式；只替换左列，随原生渲染同步中列和右列。
       const syncLayout = () => {
+        for (const content of document.querySelectorAll('[data-conversation-content]')) {
+          if (observedContents.has(content)) continue;
+          observedContents.add(content);
+          contentResizeObserver.observe(content);
+        }
         for (const rightbar of document.querySelectorAll('[data-rightbar-col]')) {
           const frame = rightbar.parentElement;
           if (!frame) continue;
@@ -114,12 +150,13 @@ func dshInjection(s settings.DroidSettings) string {
         const layoutChanged = records.some(record => {
           if (record.type === 'attributes') return record.target.hasAttribute('data-wide-dsh-frame');
           return Array.from(record.addedNodes).some(node => node instanceof Element &&
-            (node.matches('[data-rightbar-col]') || node.querySelector('[data-rightbar-col]')));
+            (node.matches('[data-rightbar-col], [data-conversation-content]') || node.querySelector('[data-rightbar-col], [data-conversation-content]')));
         });
         if (layoutChanged) syncLayout();
       });
       observer.observe(document.documentElement, {subtree: true, childList: true, attributes: true, attributeFilter: ['style']});
       window.__wideDshLayoutObserver = observer;
+      window.__wideDshContentResizeObserver = contentResizeObserver;
       syncLayout();
       return true;
     };
