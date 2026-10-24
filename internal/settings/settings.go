@@ -49,6 +49,8 @@ type DroidSettings struct {
 	ExecutablePath string `json:"executablePath"`
 	HideChanges    bool   `json:"hideChanges"`
 	PreventSummary bool   `json:"preventSummary"`
+	// DefaultReasoningEffort 指定 DSH 切换模型后的推理等级。
+	DefaultReasoningEffort string `json:"defaultReasoningEffort"`
 	// ShowWorkbuddyCredits 在 DSH 底部 context 用量后、WorkBuddy 输入框上下文用量左侧显示 WorkBuddy 积分。
 	ShowWorkbuddyCredits bool `json:"showWorkbuddyCredits"`
 }
@@ -308,8 +310,9 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		return DroidSettings{
 			Width: "70vw", SidebarWidth: "15vw", MaxWidth: "90rem", ChatHeight: "80px",
 			FontFamily: "Cascadia Mono, LXGW WenKai Mono", FontSize: 17, FontWeight: 300, TerminalFollow: true,
-			ShowWorkbuddyCredits: Applications[id].Credits,
-			Port:                 ports[id],
+			ShowWorkbuddyCredits:   Applications[id].Credits,
+			DefaultReasoningEffort: "native",
+			Port:                   ports[id],
 		}
 	}
 	return map[FeatureId]DroidSettings{
@@ -318,7 +321,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		Zcode:     func() DroidSettings { s := base(Zcode); s.FontSize = 18; s.HideChanges = true; return s }(),
 		Workbuddy: func() DroidSettings { s := base(Workbuddy); s.FontWeight = 200; return s }(),
 		Manus:     func() DroidSettings { s := base(Manus); s.FontWeight = 200; return s }(),
-		Dsh:       base(Dsh),
+		Dsh:       func() DroidSettings { s := base(Dsh); s.DefaultReasoningEffort = "xhigh"; return s }(),
 		Qoder:     base(Qoder),
 		Paseo:     func() DroidSettings { s := base(Paseo); s.HideLocalMerge = true; s.HideGitDiff = true; return s }(),
 		Claude:    base(Claude),
@@ -457,6 +460,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if _, ok := input["showWorkbuddyCredits"]; !ok {
 		input["showWorkbuddyCredits"] = fallback.ShowWorkbuddyCredits
 	}
+	if _, ok := input["defaultReasoningEffort"]; !ok {
+		input["defaultReasoningEffort"] = fallback.DefaultReasoningEffort
+	}
 	var value DroidSettings
 	schema := []struct {
 		key      string
@@ -481,6 +487,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		{"hideChanges", "boolean", nil, nil, &value.HideChanges, defaultDroid.HideChanges},
 		{"preventSummary", "boolean", nil, nil, &value.PreventSummary, defaultDroid.PreventSummary},
 		{"showWorkbuddyCredits", "boolean", nil, nil, &value.ShowWorkbuddyCredits, defaultDroid.ShowWorkbuddyCredits},
+		{"defaultReasoningEffort", "string", &value.DefaultReasoningEffort, nil, nil, fallback.DefaultReasoningEffort},
 	}
 	for _, field := range schema {
 		raw, ok := input[field.key]
@@ -522,6 +529,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		return DroidSettings{}, fmt.Errorf("设置格式无效")
 	}
 	capability := Applications[id]
+	if id != Dsh || !slices.Contains([]string{"low", "medium", "high", "xhigh"}, value.DefaultReasoningEffort) {
+		value.DefaultReasoningEffort = fallback.DefaultReasoningEffort
+	}
 	if !capability.Merge {
 		value.HideLocalMerge = false
 	}

@@ -117,7 +117,7 @@ func dshInjection(s settings.DroidSettings) string {
 	sb.WriteString(";\n")
 	sb.WriteString(currentProjectInjection("dsh"))
 	sb.WriteString(";\n")
-	sb.WriteString(dshReasoningEffortSource)
+	sb.WriteString(strings.ReplaceAll(dshReasoningEffortSource, "__DECK_DEFAULT_REASONING_EFFORT__", jsString(s.DefaultReasoningEffort)))
 	sb.WriteString(`;
       // ds-bot 禁用了原生列宽变量的继承，独立测量内容区以支持百分比设置。
       window.__wideDshContentResizeObserver?.disconnect();

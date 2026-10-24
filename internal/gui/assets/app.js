@@ -43,7 +43,7 @@ const DEFAULT_APPLICATIONS = {
   workbuddy: { ...DEFAULT_DROID, fontWeight: 200, showWorkbuddyCredits: true, port: PORTS.workbuddy },
   manus: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.manus },
   claude: { ...DEFAULT_DROID, port: PORTS.claude },
-  dsh: { ...DEFAULT_DROID, showWorkbuddyCredits: true, port: PORTS.dsh },
+  dsh: { ...DEFAULT_DROID, defaultReasoningEffort: 'xhigh', showWorkbuddyCredits: true, port: PORTS.dsh },
   qoder: { ...DEFAULT_DROID, port: PORTS.qoder },
   paseo: { ...DEFAULT_DROID, hideLocalMerge: true, hideGitDiff: true, port: PORTS.paseo },
 }
@@ -589,8 +589,16 @@ function renderApplicationPage(id) {
       const chat = PixelControl({ id: 'chatHeight', min: 0, max: 9999, step: 5, value: settings.chatHeight.endsWith('px') ? settings.chatHeight.slice(0, -2) : '', placeholder: !settings.chatHeight.endsWith('px') ? settings.chatHeight : undefined, ...inputProps('chatHeight'), onInput: value => update('chatHeight', `${value}px`) })
       layoutList.appendChild(SettingRow('输入框高度', 'chatHeight', errors.chatHeight, chat.node))
     }
+    if (id === 'dsh') {
+      const effort = SelectControl({
+        id: 'defaultReasoningEffort', label: '默认推理等级', value: settings.defaultReasoningEffort ?? 'xhigh', disabled,
+        options: ['low', 'medium', 'high', 'xhigh'].map(value => ({ value, label: value })),
+        onChange: value => update('defaultReasoningEffort', value),
+      })
+      layoutList.appendChild(SettingRow('默认推理等级', 'defaultReasoningEffort', null, effort.node))
+    }
     if (capability.credits) {
-      layoutList.appendChild(SettingRow('显示WorkBuddy积分', null, null, Switch('显示WorkBuddy积分', settings.showWorkbuddyCredits, disabled, value => update('showWorkbuddyCredits', value))))
+      layoutList.appendChild(SettingRow('WorkBuddy积分', null, null, Switch('WorkBuddy积分', settings.showWorkbuddyCredits, disabled, value => update('showWorkbuddyCredits', value))))
     }
     layoutSection.appendChild(layoutList)
     page.appendChild(layoutSection)

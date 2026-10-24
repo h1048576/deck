@@ -1,11 +1,16 @@
 (() => {
   const key = '__deckDshReasoningEffort';
-  if (window[key]) {
-    window[key].scan();
+  const configuredEffort = __DECK_DEFAULT_REASONING_EFFORT__;
+  if (window[key]?.configure) {
+    window[key].configure(configuredEffort);
     return true;
   }
+  // 兼容已安装的旧版脚本，释放其观察器和订阅后再接管。
+  window[key]?.dispose?.();
+  window[key]?.observer?.disconnect();
 
   const directories = new Map();
+  let defaultEffort = configuredEffort;
   let scheduled = false;
   const currentFiber = element => {
     let fiber = element[Object.keys(element).find(name => name.startsWith('__reactFiber'))];
@@ -26,17 +31,18 @@
       ?.models?.find(item => item.id === current.model);
     if (!model) return;
 
-    // 首次接入保留已手动选择的等级；之后每次切换模型都优先使用 xhigh。
+    // 首次接入保留手动选择；后续切换仅在模型支持配置等级时应用。
     const preserveEffort = entry.modelKey === undefined && current.reasoningEffort != null;
     entry.modelKey = modelKey;
-    if (preserveEffort || current.reasoningEffort === 'xhigh' ||
-        !model.reasoning?.efforts?.some(effort => effort.id === 'xhigh')) return;
+    const targetEffort = defaultEffort;
+    if (preserveEffort || current.reasoningEffort === targetEffort ||
+        !model.reasoning?.efforts?.some(effort => effort.id === targetEffort)) return;
 
     // 走原生选择接口，使实际会话参数与界面显示同步。
     Promise.resolve().then(() => {
       const latest = directory.getSnapshot();
-      if (latest.pending != null || latest.current !== current || entry.props.locked) return;
-      return select({ ...current, reasoningEffort: 'xhigh' });
+      if (latest.pending != null || latest.current !== current || entry.props.locked || defaultEffort !== targetEffort) return;
+      return select({ ...current, reasoningEffort: targetEffort });
     }).then(result => {
       if (result?.ok === false) console.warn('[Deck] 默认推理等级设置失败', result.error);
     }).catch(error => console.warn('[Deck] 默认推理等级设置失败', error));
@@ -77,7 +83,15 @@
     childList: true, subtree: true, attributes: true,
     attributeFilter: ['aria-busy', 'disabled'],
   });
-  window[key] = { scan: schedule, observer };
+  window[key] = {
+    scan: schedule, observer,
+    configure(value) { defaultEffort = value; schedule(); },
+    dispose() {
+      observer.disconnect();
+      for (const entry of directories.values()) entry.unsubscribe();
+      directories.clear();
+    },
+  };
   scan();
   return true;
 })()
