@@ -22,6 +22,9 @@ var codexRemainingUsageSource string
 //go:embed scripts/codex-wide/current-project.js
 var codexCurrentProjectSource string
 
+//go:embed scripts/codex-wide/model-filter.js
+var codexModelFilterSource string
+
 //go:embed scripts/current-project.js
 var currentProjectSource string
 
@@ -30,6 +33,9 @@ var zcodeModelLabelSource string
 
 //go:embed scripts/dsh-wide/reasoning-effort.js
 var dshReasoningEffortSource string
+
+//go:embed scripts/workbuddy-wide/model-filter.js
+var workbuddyModelFilterSource string
 
 func currentProjectInjection(id string) string {
 	return strings.ReplaceAll(currentProjectSource, "__DECK_PROJECT_APP__", id)
@@ -144,6 +150,8 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 	widthGuardSource := codexContentWidthSource
 	if id == "codex" {
 		widthGuardSource += "\n" + codexRemainingUsageSource + "\n" + codexCurrentProjectSource
+		patterns, _ := json.Marshal(s.HiddenModelPatterns)
+		widthGuardSource += "\n" + strings.ReplaceAll(codexModelFilterSource, "__DECK_HIDDEN_MODEL_PATTERNS__", string(patterns))
 	}
 	source = strings.ReplaceAll(source, "$widthGuardSource", widthGuardSource)
 	source = strings.ReplaceAll(source, "$PreventSummary", map[bool]string{true: "1", false: "0"}[s.PreventSummary])
@@ -160,7 +168,9 @@ func applicationInjection(id string, s settings.DroidSettings) string {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar
 	}
 	if id == "workbuddy" {
-		return layoutSource + " && " + sidebar + " && " + creditsInjection(id, s.ShowWorkbuddyCredits)
+		patterns, _ := json.Marshal(s.HiddenModelPatterns)
+		modelFilter := strings.ReplaceAll(workbuddyModelFilterSource, "__DECK_HIDDEN_MODEL_PATTERNS__", string(patterns))
+		return layoutSource + " && " + sidebar + " && " + creditsInjection(id, s.ShowWorkbuddyCredits) + " && " + modelFilter
 	}
 	return layoutSource + " && " + sidebar
 }

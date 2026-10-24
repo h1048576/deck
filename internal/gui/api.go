@@ -451,7 +451,7 @@ func (h *host) buildRouter() *http.ServeMux {
 			writeError(rw, err)
 			return
 		}
-		writeJSON(rw, http.StatusOK, parsed)
+		writeJSON(rw, http.StatusOK, h.store.Prefs().Applications[id])
 	})
 	mux.HandleFunc("POST /api/theme", func(rw http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -759,7 +759,8 @@ func (h *host) buildRouter() *http.ServeMux {
 			writeError(rw, err)
 			return
 		}
-		runErr := h.rt.RunApplication(id, body.Action, parsed, report, h.store.Prefs().StartupMode, nil)
+		prefs := h.store.Prefs()
+		runErr := h.rt.RunApplication(id, body.Action, prefs.Applications[id], report, prefs.StartupMode, nil)
 		reportMu.Lock()
 		operationRunning = false
 		detail := failureDetail

@@ -53,6 +53,8 @@ type DroidSettings struct {
 	DefaultReasoningEffort string `json:"defaultReasoningEffort"`
 	// ShowWorkbuddyCredits 在 DSH 底部 context 用量后、WorkBuddy 输入框上下文用量左侧显示 WorkBuddy 积分。
 	ShowWorkbuddyCredits bool `json:"showWorkbuddyCredits"`
+	// HiddenModelPatterns 用于 Codex 和 WorkBuddy，按模型名称或 ID 忽略大小写匹配 JavaScript 正则表达式。
+	HiddenModelPatterns []string `json:"hiddenModelPatterns"`
 }
 
 // AppearanceSettings configures the deck window itself.
@@ -311,6 +313,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 			Width: "70vw", SidebarWidth: "15vw", MaxWidth: "90rem", ChatHeight: "80px",
 			FontFamily: "Cascadia Mono, LXGW WenKai Mono", FontSize: 17, FontWeight: 300, TerminalFollow: true,
 			ShowWorkbuddyCredits:   Applications[id].Credits,
+			HiddenModelPatterns:    []string{},
 			DefaultReasoningEffort: "native",
 			Port:                   ports[id],
 		}
@@ -443,6 +446,18 @@ func SettingsErrors(v DroidSettings) map[string]string {
 	return errors
 }
 
+func parseHiddenModelPatterns(input any) []string {
+	result := []string{}
+	if patterns, ok := input.([]any); ok {
+		for _, item := range patterns {
+			if pattern, ok := item.(string); ok && strings.TrimSpace(pattern) != "" && !slices.Contains(result, pattern) {
+				result = append(result, pattern)
+			}
+		}
+	}
+	return result
+}
+
 // ParseSettings normalizes and validates one application's settings.
 func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if input == nil {
@@ -464,6 +479,10 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		input["defaultReasoningEffort"] = fallback.DefaultReasoningEffort
 	}
 	var value DroidSettings
+	value.HiddenModelPatterns = []string{}
+	if id == Workbuddy || id == Codex {
+		value.HiddenModelPatterns = parseHiddenModelPatterns(input["hiddenModelPatterns"])
+	}
 	schema := []struct {
 		key      string
 		kind     string

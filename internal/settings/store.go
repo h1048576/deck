@@ -52,6 +52,10 @@ func (s *Store) Prefs() Preferences {
 
 func clonePreferences(prefs Preferences) Preferences {
 	prefs.Applications = maps.Clone(prefs.Applications)
+	for id, app := range prefs.Applications {
+		app.HiddenModelPatterns = slices.Clone(app.HiddenModelPatterns)
+		prefs.Applications[id] = app
+	}
 	prefs.MenuOrder = slices.Clone(prefs.MenuOrder)
 	prefs.FontOptions = slices.Clone(prefs.FontOptions)
 	prefs.Terminal.WindowSizeOptions = slices.Clone(prefs.Terminal.WindowSizeOptions)
@@ -215,6 +219,30 @@ func structToMap(v any) map[string]any {
 	return out
 }
 
+// mergeFileOnlySettings 在启动和保存前读取文件专属字段，避免界面中的旧快照覆盖手动配置。
+// 调用方须持有 s.mu；仅合并隐藏规则，保留正在编辑的其他界面设置。
+func (s *Store) mergeFileOnlySettings(prefs *Preferences) error {
+	text, err := os.ReadFile(filepath.Join(s.root, appdir.SettingsName))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var data map[string]any
+	if err := json.Unmarshal(text, &data); err != nil {
+		return err
+	}
+	apps, _ := data["applications"].(map[string]any)
+	for _, id := range []FeatureId{Workbuddy, Codex} {
+		config, _ := apps[id].(map[string]any)
+		app := prefs.Applications[id]
+		app.HiddenModelPatterns = parseHiddenModelPatterns(config["hiddenModelPatterns"])
+		prefs.Applications[id] = app
+	}
+	return nil
+}
+
 // Update queues a change; the returned channel receives the flush outcome.
 func (s *Store) Update(fn Change) <-chan error {
 	s.mu.Lock()
@@ -256,6 +284,11 @@ func (s *Store) flushBatch() {
 		current = entry.fn(current)
 	}
 	err := func() error {
+		if s.warning == "" {
+			if err := s.mergeFileOnlySettings(&current); err != nil {
+				return err
+			}
+		}
 		text, err := marshalPreferences(current)
 		if err != nil {
 			return err
@@ -328,6 +361,9 @@ func (s *Store) Flush() error {
 	defer s.mu.Unlock()
 	for s.pending > 0 {
 		s.cond.Wait()
+	}
+	if s.saveErr == nil && s.warning == "" {
+		return s.mergeFileOnlySettings(&s.prefs)
 	}
 	return s.saveErr
 }
