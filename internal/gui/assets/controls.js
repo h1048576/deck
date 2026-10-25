@@ -357,12 +357,13 @@ export function PixelControl({ id, min, max, step = 1, unit = 'px', value, place
 
 const SIZE_UNITS = ['%', 'vw', 'rem', 'px']
 
-export function DimensionControl({ id, label, value, fallback, disabled, error, onChange }) {
+export function DimensionControl({ id, label, value, fallback, disabled, error, onChange, allowNone = false }) {
   const match = /^([0-9]*(?:\.[0-9]*)?)(%|vw|rem|px)$/.exec(value)
   const fallbackMatch = /^([0-9]+)(%|vw|rem|px)$/.exec(fallback)
   const number = match ? match[1] : ''
   const unit = match ? match[2] : fallbackMatch[2]
-  const legacy = !match && !!value
+  const unlimited = allowNone && value === 'none'
+  const legacy = !match && !!value && !unlimited
   const numberInput = el('input', 'field-input dimension-number')
   numberInput.id = id
   numberInput.type = 'number'
@@ -370,19 +371,21 @@ export function DimensionControl({ id, label, value, fallback, disabled, error, 
   numberInput.max = '9999'
   numberInput.step = '5'
   numberInput.value = number
-  numberInput.disabled = disabled
+  numberInput.disabled = disabled || unlimited
   numberInput.setAttribute('aria-label', `${label}数值`)
   if (error) numberInput.setAttribute('aria-invalid', 'true')
   if (error) numberInput.setAttribute('aria-describedby', `${id}-error`)
   if (legacy) numberInput.placeholder = value
+  if (unlimited) numberInput.placeholder = '不限'
   const wrap = el('div', 'dimension-control')
   wrap.appendChild(numberInput)
   const options = [
     ...(legacy ? [{ value: 'legacy', label: value, disabled: true }] : []),
+    ...(allowNone ? [{ value: 'none', label: '不限' }] : []),
     ...SIZE_UNITS.map(sizeUnit => ({ value: sizeUnit, label: sizeUnit }))
   ]
-  const select = SelectControl({ id: `${id}-unit`, label: `${label}单位`, value: legacy ? 'legacy' : unit, disabled, options, onChange: next => {
-    onChange(`${number || fallbackMatch[1]}${next}`)
+  const select = SelectControl({ id: `${id}-unit`, label: `${label}单位`, value: unlimited ? 'none' : legacy ? 'legacy' : unit, disabled, options, onChange: next => {
+    onChange(next === 'none' ? 'none' : `${number || fallbackMatch[1]}${next}`)
   } })
   wrap.appendChild(select.node)
   numberInput.addEventListener('input', () => onChange(`${numberInput.value}${unit}`))

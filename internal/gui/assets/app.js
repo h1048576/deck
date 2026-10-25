@@ -612,7 +612,11 @@ function renderApplicationPage(id) {
     }
     layoutList.appendChild(DimensionControl({ id: 'width', label: '内容区宽度', value: settings.width, fallback: defaults.width, disabled, error: errors.width, onChange: value => update('width', value) }))
     if (capability.maxWidth) {
-      layoutList.appendChild(DimensionControl({ id: 'maxWidth', label: '最大宽度', value: settings.maxWidth, fallback: defaults.maxWidth, disabled, error: errors.maxWidth, onChange: value => update('maxWidth', value) }))
+      const maxWidth = DimensionControl({ id: 'maxWidth', label: '最大宽度', value: settings.maxWidth, fallback: defaults.maxWidth, disabled, error: errors.maxWidth, allowNone: id === 'workbuddy', onChange: value => update('maxWidth', value) })
+      if (id === 'workbuddy') {
+        maxWidth.querySelector('.setting-label').appendChild(el('span', 'setting-description', '内容区宽度受此上限和可用空间限制；选择“不限”可取消上限。rem 会随字号变化。'))
+      }
+      layoutList.appendChild(maxWidth)
     }
     if (capability.chatHeight) {
       const chat = PixelControl({ id: 'chatHeight', min: 0, max: 9999, step: 5, value: settings.chatHeight.endsWith('px') ? settings.chatHeight.slice(0, -2) : '', placeholder: !settings.chatHeight.endsWith('px') ? settings.chatHeight : undefined, ...inputProps('chatHeight'), onInput: value => update('chatHeight', `${value}px`) })

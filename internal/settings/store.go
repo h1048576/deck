@@ -307,10 +307,10 @@ func (s *Store) flushBatch() {
 		current = entry.fn(current)
 	}
 	err := func() error {
-		if s.warning == "" {
-			if err := s.mergeFileOnlySettings(&current); err != nil {
-				return err
-			}
+		// 启动时读取失败也必须重新检查文件。文件可能已被手动修复；
+		// 若仍无法解析，拒绝用默认快照覆盖，避免连带清空隐藏规则。
+		if err := s.mergeFileOnlySettings(&current); err != nil {
+			return err
 		}
 		text, err := marshalPreferences(current)
 		if err != nil {
@@ -385,7 +385,7 @@ func (s *Store) Flush() error {
 	for s.pending > 0 {
 		s.cond.Wait()
 	}
-	if s.saveErr == nil && s.warning == "" {
+	if s.saveErr == nil {
 		return s.mergeFileOnlySettings(&s.prefs)
 	}
 	return s.saveErr

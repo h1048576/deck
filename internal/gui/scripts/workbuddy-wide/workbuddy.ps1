@@ -302,6 +302,10 @@ function Inject-WorkBuddyUi(
     --wb-font-size-offset: 0 !important;
 }
 
+.user-menu-trigger--workbuddy .user-menu-trigger-avatar {
+    filter: grayscale(1) !important;
+}
+
 :is(#workbuddy-wide-ui-override, :root, body, body *) {
     font-family: $safeFontFamily !important;
     font-size: ${ContentFontSize}px !important;
