@@ -257,7 +257,7 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) error {
 		return err
 	}
 	apps, _ := data["applications"].(map[string]any)
-	for _, id := range []FeatureId{Workbuddy, Codex} {
+	for _, id := range []FeatureId{Workbuddy, Codex, Droid} {
 		config, _ := apps[id].(map[string]any)
 		app := prefs.Applications[id]
 		app.HiddenModelPatterns = parseHiddenModelPatterns(config["hiddenModelPatterns"])

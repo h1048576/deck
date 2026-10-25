@@ -2,6 +2,7 @@ package gui
 
 import (
 	_ "embed"
+	"encoding/json"
 	"strings"
 
 	"deck/internal/settings"
@@ -9,6 +10,9 @@ import (
 
 //go:embed scripts/droid-wide/composer.js
 var droidComposerSource string
+
+//go:embed scripts/droid-wide/model-filter.js
+var droidModelFilterSource string
 
 // droidInjectionSource builds Droid's combined style/terminal/sidebar script.
 func droidInjectionSource(s settings.DroidSettings) string {
@@ -50,6 +54,9 @@ func droidInjectionSource(s settings.DroidSettings) string {
 	sb.WriteString(`;
       `)
 	sb.WriteString(strings.TrimSpace(droidComposerSource))
+	sb.WriteString(";\n")
+	patterns, _ := json.Marshal(s.HiddenModelPatterns)
+	sb.WriteString(strings.ReplaceAll(droidModelFilterSource, "__DECK_HIDDEN_MODEL_PATTERNS__", string(patterns)))
 	sb.WriteString(`;
       if (window.__droidWideContentGuard) { window.__droidWideContentGuard.scan(); return true; }
       const roots = new Set(); let scheduled = false;

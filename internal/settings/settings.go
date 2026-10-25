@@ -63,7 +63,7 @@ type DroidSettings struct {
 	DefaultReasoningEffort string `json:"defaultReasoningEffort"`
 	// ShowWorkbuddyCredits 在 DSH 底部 context 用量后、WorkBuddy 输入框上下文用量左侧显示 WorkBuddy 积分。
 	ShowWorkbuddyCredits bool `json:"showWorkbuddyCredits"`
-	// HiddenModelPatterns 用于 Codex 和 WorkBuddy，按模型名称或 ID 忽略大小写匹配 JavaScript 正则表达式。
+	// HiddenModelPatterns 用于 Codex、WorkBuddy 和 Droid，按模型名称或 ID 忽略大小写匹配 JavaScript 正则表达式。
 	HiddenModelPatterns []string `json:"hiddenModelPatterns"`
 }
 
@@ -518,7 +518,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	}
 	var value DroidSettings
 	value.HiddenModelPatterns = []string{}
-	if id == Workbuddy || id == Codex {
+	if id == Workbuddy || id == Codex || id == Droid {
 		value.HiddenModelPatterns = parseHiddenModelPatterns(input["hiddenModelPatterns"])
 	}
 	schema := []struct {

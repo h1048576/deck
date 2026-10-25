@@ -159,6 +159,8 @@ WorkBuddy 支持隐藏模型选择下拉列表中的指定模型。在 `applicat
 
 Codex App 也支持同样的规则，在 `applications.codex.hiddenModelPatterns` 中配置，默认 `[]`。例如 `["^GPT-5[.]6", "^gpt-6-luna$"]` 可隐藏名称以 GPT-5.6 开头的模型，以及 ID 为 gpt-6-luna 的模型。匹配模型名称或 ID，忽略大小写；仅隐藏模型菜单选项，不改变当前会话的已选模型。保存后通过新版 deck 启动或重启 Codex 生效。
 
+Droid（Factory）也支持相同规则，在 `applications.droid.hiddenModelPatterns` 中配置。匹配模型名称或 ID，忽略大小写；例如 `["Auto Model$", "^GPT-", "^kimi-"]`。仅隐藏模型选项，不修改当前已选模型，也不隐藏 Legacy 展开入口。Droid 的隐藏规则同样会在保存设置时从文件重新读取，避免被界面旧快照覆盖。保存后通过新版 deck 启动或重启 Droid 生效。
+
 字体下拉框的选项来自 `setting.json` 的 `fontOptions`，deck 设置页和各应用页共用。这一项没有界面入口，请在退出 deck 后直接编辑，下次启动生效：
 
 ```json
