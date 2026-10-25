@@ -30,8 +30,15 @@ var DefaultMenuOrder = []FeatureId{Codex, Droid, Claude, Zcode, Workbuddy, Dsh, 
 
 const MenuOrderVersion = 3
 const ApplicationPortsVersion = 1
+const FontDefaultsVersion = 1
 const InstallCacheMs = 60000
 const MissingInstallCacheMs = 15000
+
+// LegacyDefaultFontFamily 是 v0.0.1 之前的默认字体；FontDefaultsVersion 迁移时升级为当前默认。
+const LegacyDefaultFontFamily = "Cascadia Mono, LXGW WenKai Mono"
+
+// LegacyDefaultForeground 是 v0.0.1 之前的默认前景色；迁移时升级为 #F0F0F0。
+const LegacyDefaultForeground = "#FCFCFC"
 
 // DroidSettings is the per-application appearance configuration.
 type DroidSettings struct {
@@ -373,6 +380,8 @@ type Preferences struct {
 	// FontOptions 是 deck 设置页和各应用页字体下拉框的选项，只能直接编辑 setting.json。
 	FontOptions []string         `json:"fontOptions"`
 	Terminal    TerminalSettings `json:"terminal"`
+	// FontDefaultsVersion 记录字体和前景色默认值迁移的版本，控制旧默认值只升级一次。
+	FontDefaultsVersion int `json:"fontDefaultsVersion"`
 }
 
 // DefaultPreferences returns a fully populated default document.
@@ -388,6 +397,7 @@ func DefaultPreferences() Preferences {
 		ApplicationPortsVersion: ApplicationPortsVersion,
 		FontOptions:             DefaultFontOptions(),
 		Terminal:                DefaultTerminal(),
+		FontDefaultsVersion:     FontDefaultsVersion,
 	}
 }
 

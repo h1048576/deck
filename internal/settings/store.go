@@ -125,6 +125,8 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	prefs := DefaultPreferences()
 	appsSection, _ := data["applications"].(map[string]any)
 	legacyPorts := map[FeatureId]int{Droid: 9335, Zcode: 9332, Workbuddy: 9333, Dsh: 9337, Qoder: 9334, Paseo: 9336}
+	fontDefaultsValue, _ := data["fontDefaultsVersion"].(float64)
+	migrateFontDefaults := int(fontDefaultsValue) != FontDefaultsVersion
 	applications := map[FeatureId]DroidSettings{}
 	for _, id := range DefaultMenuOrder {
 		savedRaw, present := appsSection[id]
@@ -138,6 +140,15 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		}
 		for key, val := range saved {
 			merged[key] = val
+		}
+		if migrateFontDefaults {
+			// 只升级保存的旧默认值；用户手动选择的字体和颜色保持原样。
+			if font, ok := merged["fontFamily"].(string); ok && font == LegacyDefaultFontFamily {
+				merged["fontFamily"] = defaults[id].FontFamily
+			}
+			if foreground, ok := merged["foregroundColor"].(string); ok && foreground == LegacyDefaultForeground {
+				merged["foregroundColor"] = defaults[id].ForegroundColor
+			}
 		}
 		if id == Zcode {
 			if _, ok := saved["terminalFollow"]; !ok && saved != nil {
@@ -173,6 +184,11 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	}
 	if rawAppearance, present := data["appearance"]; present {
 		appearanceMap, _ := rawAppearance.(map[string]any)
+		if migrateFontDefaults && appearanceMap != nil {
+			if font, ok := appearanceMap["fontFamily"].(string); ok && font == LegacyDefaultFontFamily {
+				appearanceMap["fontFamily"] = DefaultAppearance().FontFamily
+			}
+		}
 		appearance, err := ParseAppearance(appearanceMap)
 		if err != nil {
 			return Preferences{}, err
@@ -205,6 +221,13 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		prefs.MenuOrder = NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude }))
 	}
 	prefs.FontOptions = ParseFontOptions(data["fontOptions"])
+	if migrateFontDefaults {
+		if terminalMap, ok := data["terminal"].(map[string]any); ok {
+			if font, ok := terminalMap["fontFamily"].(string); ok && font == LegacyDefaultFontFamily {
+				terminalMap["fontFamily"] = DefaultTerminal().FontFamily
+			}
+		}
+	}
 	prefs.Terminal = ParseTerminal(data["terminal"])
 	return prefs, nil
 }

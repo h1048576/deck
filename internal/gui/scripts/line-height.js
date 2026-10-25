@@ -1,18 +1,18 @@
 (() => {
-  // 所有受管应用共用原生行高采样；保留旧状态键以便清理已注入版本。
   const key = '__deckCodexLineHeight';
   const percent = __DECK_LINE_HEIGHT_PERCENT__;
+  if (window[key]?.version === 2 && window[key].percent === percent) return;
   window[key]?.dispose();
   if (!Number.isSafeInteger(percent) || percent <= 0) return;
-
   const marker = 'data-deck-line-height';
   const sidebarMarker = 'data-deck-sidebar-spacing';
   const roots = new Map();
   const marked = new Set();
   const sidebarMarked = new Set();
-  let timer = null;
+  const heights = new Set();
+  const sidebarRules = new Map();
+  const normalCache = new Map();
   let disposed = false;
-  let pending = false;
   let caretFrame = null;
   const activeEditor = () => {
     let element = document.activeElement;
@@ -61,27 +61,6 @@
       }
     });
   };
-  const schedule = () => {
-    if (disposed || percent === 100) return;
-    pending = true;
-    // 编辑期间保持现有覆盖，新段落继承当前行高；失焦后统一补采样。
-    if (!activeEditor() && timer === null) timer = setTimeout(refresh, 300);
-  };
-  const ownNode = node => node instanceof Element && (node.id.startsWith('deck-') || node.hasAttribute('data-deck-probe'));
-  const styleSignature = value => {
-    const style = document.createElement('span').style;
-    style.cssText = value || '';
-    return [...style].filter(name => /^(--|font|line-height|padding|margin|gap|row-gap|height|min-height|max-height|writing-mode|display)/.test(name))
-      .sort().map(name => `${name}:${style.getPropertyValue(name)}!${style.getPropertyPriority(name)}`).join(';');
-  };
-  const observer = new MutationObserver(records => {
-    if (records.some(record => !ownNode(record.target) &&
-      !(record.type === 'attributes' && record.attributeName.startsWith('data-deck-')) &&
-      !(record.type === 'attributes' && record.attributeName === 'style' &&
-        styleSignature(record.oldValue) === styleSignature(record.target.getAttribute('style'))) &&
-      (record.type !== 'childList' || [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element && !ownNode(node))))) schedule();
-  });
-  const onFocusOut = () => { if (pending && timer === null) timer = setTimeout(refresh, 0); };
 
   // 列表行有独立高度，仅调整文字行高不会改变条目密度。
   // 只处理侧栏内容的纵向尺寸，保留面板、滚动容器和导航图标栏的布局。
@@ -105,6 +84,7 @@
     return declarations.join(' ');
   };
 
+
   // normal 没有可直接读取的像素值，使用隔离的单行文本测量字体行盒。
   const probeHost = document.createElement('div');
   probeHost.setAttribute('data-deck-probe', '');
@@ -126,127 +106,76 @@
     return cache.get(key);
   };
 
-  function refresh() {
-    timer = null;
-    if (disposed || !document.documentElement) return;
-    if (activeEditor() && roots.size) { pending = true; return; }
-    pending = false;
-    observer.disconnect();
-    // 同一批读取前关闭所有覆盖，防止继承和多次调整产生累计缩放。
-    for (const style of roots.values()) style.disabled = true;
-    try {
+
+  const ensureStyle = root => {
+    if (roots.get(root)?.isConnected) return;
+    const style = document.createElement('style');
+    style.id = 'deck-line-height';
+    (root === document ? document.head || document.documentElement : root).append(style);
+    roots.set(root, style);
+  };
+  const writeStyles = () => {
+    const css = editorCSS + '\n' + [...heights].map(height =>
+      '[data-deck-line-height="' + height + '"] { line-height:' + Number(height) * percent / 100 + 'px !important; }'
+    ).concat([...sidebarRules].map(([declarations, group]) =>
+      '[data-deck-sidebar-spacing="' + group + '"] { ' + declarations + ' }'
+    )).join('\n');
+    for (const style of roots.values()) if (style.textContent !== css) style.textContent = css;
+  };
+  const cleanup = () => {
+    for (const element of marked) if (!element.isConnected) { element.removeAttribute(marker); marked.delete(element); }
+    for (const element of sidebarMarked) if (!element.isConnected) { element.removeAttribute(sidebarMarker); sidebarMarked.delete(element); }
+    for (const [root, style] of roots) if (root !== document && !root.host.isConnected) { style.remove(); roots.delete(root); }
+  };
+  ensureStyle(document);
+  let watcher = null;
+  if (percent !== 100) watcher = window.__deckNativeStyles.watch({
+    relevantProperty: name => /^(font|line-height|padding|margin|gap|row-gap|height|min-height|max-height|writing-mode|display)/.test(name) ||
+      /^--.*(?:font|line-height|leading|spacing|padding|margin|gap|height|text-(?:xs|sm|base|lg|xl|[2-9]xl|heading))/.test(name),
+    cleanup,
+    measure(elements, nativeStyle, stats, full) {
+      if (full) normalCache.clear();
+      // 原生样式在隔离镜像里读取，真实页面的覆盖始终保持启用。
       document.documentElement.append(probeHost);
       const measurements = [];
-      const heights = new Set();
-      const sidebarMeasurements = new Map();
-      const sidebarRules = new Map();
-      const normalCache = new Map();
-      const activeRoots = new Set();
-      const visit = root => {
-        activeRoots.add(root);
-        if (!roots.has(root) || !roots.get(root).isConnected) {
-          const style = document.createElement('style');
-          style.id = 'deck-line-height';
-          style.disabled = true;
-          (root === document ? document.head || document.documentElement : root).append(style);
-          roots.set(root, style);
-        }
-        for (const element of root.querySelectorAll('*')) {
-          if (element === probeHost || /^(STYLE|SCRIPT|LINK|META|HEAD|TITLE)$/.test(element.tagName)) continue;
-          if (element.shadowRoot) visit(element.shadowRoot);
-          if (!(element instanceof HTMLElement)) continue;
-          const computed = getComputedStyle(element);
-          const spacing = sidebarSpacing(element, computed);
-          if (spacing) {
-            if (!sidebarRules.has(spacing)) sidebarRules.set(spacing, sidebarRules.size);
-            sidebarMeasurements.set(element, String(sidebarRules.get(spacing)));
-          }
-          const height = computed.lineHeight === 'normal'
-            ? normalHeight(computed, normalCache) : Number.parseFloat(computed.lineHeight);
+      try {
+        for (const element of elements) {
+          const computed = nativeStyle(element);
+          if (!computed) continue;
+          ensureStyle(element.getRootNode());
+          const height = computed.lineHeight === 'normal' ? normalHeight(computed, normalCache) : Number.parseFloat(computed.lineHeight);
           if (!Number.isFinite(height) || height < 0) continue;
-          const baseline = String(height);
-          measurements.push([element, baseline]);
-          heights.add(baseline);
+          measurements.push([element, String(height), sidebarSpacing(element, computed)]);
         }
-      };
-      if (percent !== 100) visit(document);
-      else {
-        activeRoots.add(document);
-        if (!roots.has(document)) {
-          const style = document.createElement('style');
-          style.id = 'deck-line-height';
-          (document.head || document.documentElement).append(style);
-          roots.set(document, style);
-        }
-      }
-      // 先完成读取，再统一写入，所有子元素均使用自己的原生基准。
-      for (const element of marked) {
-        if (!element.isConnected) {
-          element.removeAttribute(marker);
-          marked.delete(element);
-        }
-      }
-      for (const [element, baseline] of measurements) {
-        if (element.getAttribute(marker) !== baseline) element.setAttribute(marker, baseline);
+      } finally { probeHost.remove(); }
+      for (const [element, baseline, spacing] of measurements) {
+        heights.add(baseline);
+        if (element.getAttribute(marker) !== baseline) { element.setAttribute(marker, baseline); stats.writes++; }
         marked.add(element);
+        if (spacing) {
+          if (!sidebarRules.has(spacing)) sidebarRules.set(spacing, String(sidebarRules.size));
+          const group = sidebarRules.get(spacing);
+          if (element.getAttribute(sidebarMarker) !== group) { element.setAttribute(sidebarMarker, group); stats.writes++; }
+          sidebarMarked.add(element);
+        } else if (sidebarMarked.delete(element)) { element.removeAttribute(sidebarMarker); stats.writes++; }
       }
-      for (const element of sidebarMarked) {
-        if (!sidebarMeasurements.has(element)) {
-          element.removeAttribute(sidebarMarker);
-          sidebarMarked.delete(element);
-        }
-      }
-      for (const [element, group] of sidebarMeasurements) {
-        if (element.getAttribute(sidebarMarker) !== group) element.setAttribute(sidebarMarker, group);
-        sidebarMarked.add(element);
-      }
-      const css = [...heights].map(height =>
-        `[${marker}="${height}"] { line-height: ${Number(height) * percent / 100}px !important; }`
-      ).concat([...sidebarRules].map(([declarations, group]) =>
-        `[${sidebarMarker}="${group}"] { ${declarations} }`
-      )).join('\n');
-      for (const [root, style] of roots) {
-        if (!activeRoots.has(root)) {
-          style.remove();
-          roots.delete(root);
-        } else {
-          const next = editorCSS + '\n' + css;
-          if (style.textContent !== next) style.textContent = next;
-        }
-      }
-    } finally {
-      probeHost.remove();
-      for (const [root, style] of roots) {
-        style.disabled = false;
-        if (percent !== 100) observer.observe(root, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme'], childList: true, subtree: true });
-      }
+      writeStyles();
       keepCaretVisible();
-    }
-  }
-
-  const dispose = () => {
+    },
+  });
+  writeStyles();
+  window[key] = { version: 2, percent, stats: watcher?.stats, dispose() {
     disposed = true;
-    clearTimeout(timer);
+    watcher?.dispose();
     cancelAnimationFrame(caretFrame);
-    observer.disconnect();
-    document.removeEventListener('focusout', onFocusOut, true);
     document.removeEventListener('input', keepCaretVisible, true);
     document.removeEventListener('selectionchange', keepCaretVisible);
-    window.removeEventListener('resize', schedule);
-    document.removeEventListener('load', schedule, true);
-    document.fonts?.removeEventListener('loadingdone', schedule);
     for (const style of roots.values()) style.remove();
     for (const element of marked) element.removeAttribute(marker);
     for (const element of sidebarMarked) element.removeAttribute(sidebarMarker);
     probeHost.remove();
     delete window[key];
-  };
-  window[key] = { dispose, percent };
-  document.addEventListener('focusout', onFocusOut, true);
+  } };
   document.addEventListener('input', keepCaretVisible, true);
   document.addEventListener('selectionchange', keepCaretVisible);
-  window.addEventListener('resize', schedule);
-  document.addEventListener('load', schedule, true);
-  document.fonts?.addEventListener('loadingdone', schedule);
-  refresh();
 })();

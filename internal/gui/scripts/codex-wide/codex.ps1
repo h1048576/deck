@@ -277,6 +277,7 @@ body * {
     $cssJson = $css | ConvertTo-Json -Compress
     $widthGuardSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'content-width.js') -Raw
     $lineHeightSource = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '../line-height.js') -Raw).Replace('__DECK_LINE_HEIGHT_PERCENT__', [string]$LineHeightPercent)
+    $nativeStyleSamplerSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../native-style-sampler.js') -Raw
     $remainingUsageSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'remaining-usage.js') -Raw
     $currentProjectSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'current-project.js') -Raw
     $script = @"
@@ -364,6 +365,7 @@ body * {
     $widthGuardSource
     $remainingUsageSource
     $currentProjectSource
+    $nativeStyleSamplerSource
     $lineHeightSource
     if ($PreventSummary) installSummaryAutoOpenGuard();
     return true;

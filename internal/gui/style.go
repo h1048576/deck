@@ -11,6 +11,9 @@ import (
 //go:embed scripts/application-colors.js
 var applicationColorsSource string
 
+//go:embed scripts/native-style-sampler.js
+var nativeStyleSamplerSource string
+
 // withApplicationStyle 在原有布局注入后应用应用级配色和百分比行高。
 func withApplicationStyle(id string, s settings.DroidSettings, layout string) string {
 	background, foreground := s.BackgroundColor, s.ForegroundColor
@@ -28,7 +31,7 @@ func withApplicationStyle(id string, s settings.DroidSettings, layout string) st
 	colors := strings.ReplaceAll(applicationColorsSource, "__DECK_STYLE_CONFIG__", string(config))
 	lineHeight := strings.ReplaceAll(applicationLineHeightSource, "__DECK_LINE_HEIGHT_PERCENT__", itoa(percent))
 	return `(() => { const apply = () => { ` + strings.TrimSuffix(strings.TrimSpace(layout), ";") + `;
-` + colors + "\n" + lineHeight + `
+` + nativeStyleSamplerSource + "\n" + colors + "\n" + lineHeight + `
 return true; }; if (document.documentElement) return apply();
 document.addEventListener('DOMContentLoaded', apply, { once: true }); return true; })()`
 }
