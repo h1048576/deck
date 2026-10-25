@@ -29,6 +29,9 @@ var codexCurrentProjectSource string
 //go:embed scripts/codex-wide/model-filter.js
 var codexModelFilterSource string
 
+//go:embed scripts/codex-wide/model-selector.js
+var codexModelSelectorSource string
+
 //go:embed scripts/current-project.js
 var currentProjectSource string
 
@@ -166,6 +169,8 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		widthGuardSource += "\n" + codexRemainingUsageSource + "\n" + codexCurrentProjectSource
 		patterns, _ := json.Marshal(s.HiddenModelPatterns)
 		widthGuardSource += "\n" + strings.ReplaceAll(codexModelFilterSource, "__DECK_HIDDEN_MODEL_PATTERNS__", string(patterns))
+		selector, _ := json.Marshal(s.ModelSelector)
+		widthGuardSource += "\n" + strings.ReplaceAll(codexModelSelectorSource, "__DECK_MODEL_SELECTOR__", string(selector))
 	}
 	source = strings.ReplaceAll(source, "$widthGuardSource", widthGuardSource)
 	source = strings.ReplaceAll(source, "$PreventSummary", map[bool]string{true: "1", false: "0"}[s.PreventSummary])

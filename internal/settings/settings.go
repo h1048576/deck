@@ -65,6 +65,21 @@ type DroidSettings struct {
 	ShowWorkbuddyCredits bool `json:"showWorkbuddyCredits"`
 	// HiddenModelPatterns 用于 Codex、WorkBuddy 和 Droid，按模型名称或 ID 忽略大小写匹配 JavaScript 正则表达式。
 	HiddenModelPatterns []string `json:"hiddenModelPatterns"`
+	// ModelSelector 是 Codex 快捷模型菜单，键为显示名称，值为模型和推理等级。
+	ModelSelector map[string]ModelSelection `json:"modelSelector"`
+}
+
+type ModelSelection struct {
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoningEffort"`
+}
+
+func defaultCodexModelSelector() map[string]ModelSelection {
+	return map[string]ModelSelection{
+		"GPT-6 Astra 中":  {Model: "gpt-6-astra", ReasoningEffort: "medium"},
+		"GPT-6 Luna 中":   {Model: "gpt-6-luna", ReasoningEffort: "medium"},
+		"GPT-6.1 Sol 极高": {Model: "gpt-6.1-sol", ReasoningEffort: "xhigh"},
+	}
 }
 
 // AppearanceSettings configures the deck window itself.
@@ -334,6 +349,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 			s := base(Codex)
 			s.FontWeight = 100
 			s.PreventSummary = true
+			s.ModelSelector = defaultCodexModelSelector()
 			return s
 		}(),
 		Droid:     base(Droid),
@@ -488,6 +504,23 @@ func parseHiddenModelPatterns(input any) []string {
 	return result
 }
 
+func parseModelSelector(input any) map[string]ModelSelection {
+	result := map[string]ModelSelection{}
+	items, _ := input.(map[string]any)
+	for name, raw := range items {
+		item, _ := raw.(map[string]any)
+		model, _ := item["model"].(string)
+		effort, _ := item["reasoningEffort"].(string)
+		model = strings.TrimSpace(model)
+		effort = strings.TrimSpace(effort)
+		if strings.TrimSpace(name) == "" || model == "" || !slices.Contains([]string{"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}, effort) {
+			continue
+		}
+		result[name] = ModelSelection{Model: model, ReasoningEffort: effort}
+	}
+	return result
+}
+
 // ParseSettings normalizes and validates one application's settings.
 func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if input == nil {
@@ -520,6 +553,13 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	value.HiddenModelPatterns = []string{}
 	if id == Workbuddy || id == Codex || id == Droid {
 		value.HiddenModelPatterns = parseHiddenModelPatterns(input["hiddenModelPatterns"])
+	}
+	if id == Codex {
+		if items, present := input["modelSelector"]; present {
+			value.ModelSelector = parseModelSelector(items)
+		} else {
+			value.ModelSelector = defaultCodexModelSelector()
+		}
 	}
 	schema := []struct {
 		key      string

@@ -161,6 +161,20 @@ Codex App 也支持同样的规则，在 `applications.codex.hiddenModelPatterns
 
 Droid（Factory）也支持相同规则，在 `applications.droid.hiddenModelPatterns` 中配置。匹配模型名称或 ID，忽略大小写；例如 `["Auto Model$", "^GPT-", "^kimi-"]`。仅隐藏模型选项，不修改当前已选模型，也不隐藏 Legacy 展开入口。Droid 的隐藏规则同样会在保存设置时从文件重新读取，避免被界面旧快照覆盖。保存后通过新版 deck 启动或重启 Droid 生效。
 
+Codex App 的项目/目录名后显示快捷模型选择器，点击后向上弹出菜单，同时切换模型和推理等级。菜单末尾的中文推理等级按列对齐。按 `Ctrl+M` 可按菜单顺序循环切换配置中的模型和推理等级，末项之后回到首项；不可用的选项会跳过。配置位于 `applications.codex.modelSelector`，与 `hiddenModelPatterns` 同级；键为菜单显示名称，值为模型 ID 和推理等级，默认配置如下：
+
+```json
+"modelSelector": {
+  "GPT-6 Astra 中": { "model": "gpt-6-astra", "reasoningEffort": "medium" },
+  "GPT-6 Luna 中": { "model": "gpt-6-luna", "reasoningEffort": "medium" },
+  "GPT-6.1 Sol 极高": { "model": "gpt-6.1-sol", "reasoningEffort": "xhigh" }
+}
+```
+
+可自行修改显示名称、增删选项；设为 `{}` 可隐藏此选择器。`reasoningEffort` 支持 `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`、`ultra`，具体可用等级由模型决定。账号未提供的模型、当前不可用的模型或不支持的推理等级会显示为不可选。原生模型菜单的 `hiddenModelPatterns` 不影响这里显式配置的快捷选项。此项同样会在启动操作和保存设置前从文件重读，避免旧界面快照覆盖。保存后通过新版 deck 启动或重启 Codex，使配置生效。
+
+启动时规范化配置和保存设置时，deck 都会保留 JSON 中当前版本未识别的字段。`modelSelector`、`hiddenModelPatterns` 等文件专属配置保留文件里的原始值，不会用解析后筛选出的结果覆盖原配置。此保护需要使用包含该修复的新版；此前的旧程序仍可能在启动或保存时删除自己不认识的字段。
+
 字体下拉框的选项来自 `setting.json` 的 `fontOptions`，deck 设置页和各应用页共用。这一项没有界面入口，请在退出 deck 后直接编辑，下次启动生效：
 
 ```json

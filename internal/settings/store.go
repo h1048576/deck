@@ -54,6 +54,7 @@ func clonePreferences(prefs Preferences) Preferences {
 	prefs.Applications = maps.Clone(prefs.Applications)
 	for id, app := range prefs.Applications {
 		app.HiddenModelPatterns = slices.Clone(app.HiddenModelPatterns)
+		app.ModelSelector = maps.Clone(app.ModelSelector)
 		prefs.Applications[id] = app
 	}
 	prefs.MenuOrder = slices.Clone(prefs.MenuOrder)
@@ -106,7 +107,7 @@ func (s *Store) Load() {
 	}
 	s.prefs = prefs
 	// 新增字段和迁移结果立即写回，手动编辑 setting.json 时能看到完整配置；写入失败时下次保存会重试。
-	if normalized, err := marshalPreferences(prefs); err == nil && !bytes.Equal(normalized, text) {
+	if normalized, err := marshalPreferencesWithSource(prefs, text); err == nil && !bytes.Equal(normalized, text) {
 		_ = writeSettingsFile(s.root, normalized)
 	}
 }
@@ -243,27 +244,34 @@ func structToMap(v any) map[string]any {
 }
 
 // mergeFileOnlySettings 在启动和保存前读取文件专属字段，避免界面中的旧快照覆盖手动配置。
-// 调用方须持有 s.mu；仅合并隐藏规则，保留正在编辑的其他界面设置。
-func (s *Store) mergeFileOnlySettings(prefs *Preferences) error {
+// 调用方须持有 s.mu；合并隐藏规则和快捷模型菜单，保留正在编辑的其他界面设置。
+func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 	text, err := os.ReadFile(filepath.Join(s.root, appdir.SettingsName))
 	if os.IsNotExist(err) {
-		return nil
+		return nil, nil
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var data map[string]any
 	if err := json.Unmarshal(text, &data); err != nil {
-		return err
+		return nil, err
 	}
 	apps, _ := data["applications"].(map[string]any)
 	for _, id := range []FeatureId{Workbuddy, Codex, Droid} {
 		config, _ := apps[id].(map[string]any)
 		app := prefs.Applications[id]
 		app.HiddenModelPatterns = parseHiddenModelPatterns(config["hiddenModelPatterns"])
+		if id == Codex {
+			if items, present := config["modelSelector"]; present {
+				app.ModelSelector = parseModelSelector(items)
+			} else {
+				app.ModelSelector = defaultCodexModelSelector()
+			}
+		}
 		prefs.Applications[id] = app
 	}
-	return nil
+	return text, nil
 }
 
 // Update queues a change; the returned channel receives the flush outcome.
@@ -309,17 +317,16 @@ func (s *Store) flushBatch() {
 	err := func() error {
 		// 启动时读取失败也必须重新检查文件。文件可能已被手动修复；
 		// 若仍无法解析，拒绝用默认快照覆盖，避免连带清空隐藏规则。
-		if err := s.mergeFileOnlySettings(&current); err != nil {
-			return err
-		}
-		text, err := marshalPreferences(current)
+		original, err := s.mergeFileOnlySettings(&current)
 		if err != nil {
 			return err
 		}
-		if s.warning == "" && bytes.Equal(text, mustMarshal(s.prefs)) {
-			if _, err := os.Stat(filepath.Join(s.root, appdir.SettingsName)); err == nil {
-				return nil
-			}
+		text, err := marshalPreferencesWithSource(current, original)
+		if err != nil {
+			return err
+		}
+		if s.warning == "" && bytes.Equal(text, original) {
+			return nil
 		}
 		if err := os.MkdirAll(s.root, 0o755); err != nil {
 			return err
@@ -370,12 +377,58 @@ func marshalPreferences(prefs Preferences) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func mustMarshal(prefs Preferences) []byte {
-	text, err := marshalPreferences(prefs)
-	if err != nil {
-		return nil
+// marshalPreferencesWithSource 保留文件中当前版本不认识的字段。
+// 文件专属配置直接使用原始 JSON，解析或规范化不能静默删改用户的配置。
+func marshalPreferencesWithSource(prefs Preferences, source []byte) ([]byte, error) {
+	current, err := marshalPreferences(prefs)
+	if err != nil || len(source) == 0 {
+		return current, err
 	}
-	return text
+	merged, err := mergeSettingsObjects(current, source, nil)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, merged, "", "  "); err != nil {
+		return nil, err
+	}
+	return append(buf.Bytes(), '\n'), nil
+}
+
+func mergeSettingsObjects(current, source json.RawMessage, path []string) (json.RawMessage, error) {
+	current = bytes.TrimSpace(current)
+	source = bytes.TrimSpace(source)
+	if len(current) == 0 || len(source) == 0 || current[0] != '{' || source[0] != '{' {
+		return current, nil
+	}
+	var values, original map[string]json.RawMessage
+	if err := json.Unmarshal(current, &values); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(source, &original); err != nil {
+		return nil, err
+	}
+	for key, raw := range original {
+		value, known := values[key]
+		fileOnly := len(path) == 2 && path[0] == "applications" &&
+			(key == "modelSelector" || key == "hiddenModelPatterns")
+		if !known || fileOnly {
+			values[key] = raw
+			continue
+		}
+		merged, err := mergeSettingsObjects(value, raw, append(slices.Clone(path), key))
+		if err != nil {
+			return nil, err
+		}
+		values[key] = merged
+	}
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(values); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSpace(buf.Bytes()), nil
 }
 
 // Flush waits until every queued change is persisted and returns the last error.
@@ -386,7 +439,8 @@ func (s *Store) Flush() error {
 		s.cond.Wait()
 	}
 	if s.saveErr == nil {
-		return s.mergeFileOnlySettings(&s.prefs)
+		_, err := s.mergeFileOnlySettings(&s.prefs)
+		return err
 	}
 	return s.saveErr
 }
