@@ -87,7 +87,10 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     })
   }
 
-  const subscribe = (resource, setter) => resource.subscribe(snapshot => { setter(snapshot); render() })
+  // 四个数据源各自发布加载中和完成状态，合并到下一帧只重绘一次。
+  let renderFrame = 0
+  const scheduleRender = () => { if (!renderFrame) renderFrame = requestAnimationFrame(() => { renderFrame = 0; render() }) }
+  const subscribe = (resource, setter) => resource.subscribe(snapshot => { setter(snapshot); scheduleRender() })
   subscribe(agentsResource, next => { agentsSnapshot = next })
   subscribe(skillsResource, next => { skillsSnapshot = next })
   subscribe(modelsResource, next => { modelsSnapshot = next })
@@ -101,6 +104,15 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
       mcpsResource.invalidate()
     }
     return Promise.all([agentsResource.refresh(true), skillsResource.refresh(true), modelsResource.refresh(true), mcpsResource.refresh(true)])
+  }
+
+  // 进入页面或回到窗口时只刷新超过 maxAge 的数据，避免短时间内重复扫描配置目录。
+  function refreshStale(maxAge = 2000) {
+    const now = Date.now()
+    return Promise.all([agentsResource, skillsResource, modelsResource, mcpsResource].map(resource => {
+      const snapshot = resource.snapshot()
+      return now - snapshot.updatedAt >= maxAge ? resource.refresh(true) : Promise.resolve()
+    }))
   }
 
   function refreshSkills(invalidate = true) {
@@ -198,6 +210,7 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
   }
 
   function render() {
+    if (renderFrame) { cancelAnimationFrame(renderFrame); renderFrame = 0 }
     if (!container.isConnected) return
     container.textContent = ''
     const agents = agentsSnapshot ? agentsSnapshot.data.agentsSource : { path: '~/.claude/CLAUDE.md', exists: false }
@@ -945,5 +958,5 @@ export function createHarnessPage({ onBusyChange, onNotice, isDisabled }) {
     render()
   }
 
-  return { node: container, setCollapsed, setInitialCollapse, refreshAll }
+  return { node: container, render, setCollapsed, setInitialCollapse, refreshAll, refreshStale }
 }

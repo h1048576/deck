@@ -1,4 +1,5 @@
 (() => {
+  if (window.frameElement?.id === 'deck-native-style-sampler') return;
   const config = __DECK_STYLE_CONFIG__;
   const key = '__deckApplicationColors';
   const signature = JSON.stringify(config);
@@ -14,9 +15,14 @@
     zcode: ['--color-background', '--color-background-primary', '--color-sidebar'],
     droid: ['--surface-1', '--sidebar-bg', '--core-v2-bg-page', '--core-v2-bg-surface', '--initial-loader-background'],
   };
-  // WorkBuddy 用 CSS Modules 硬编码颜色，没有变量可覆盖，侧栏背景按选择器直接指定。
-  const sidebarBackgroundSelectors = {
-    workbuddy: ['.conversation-list', '.conversation-section-label', '.sidebar-next', '.sidebar-next-main-header'],
+  // WorkBuddy 用 CSS Modules 硬编码颜色，没有变量可覆盖，侧栏和内容区背景按选择器直接指定。
+  const backgroundSelectors = {
+    workbuddy: [
+      // 左侧边栏
+      '.conversation-list', '.conversation-section-label', '.sidebar-next', '.sidebar-next-main-header',
+      // 右侧输出内容区（会话视图和 Teams 网格视图）
+      '.conversation-shell', '.teams-grid-scroll-content',
+    ],
   };
   const foregrounds = {
     codex: ['--color-token-text-primary', '--color-text-primary', '--color-text', '--color-text-primary-ghost', '--color-text-primary-surface', '--user-message-text-color'],
@@ -28,7 +34,7 @@
     ...(backgrounds[config.app] || []).map(name => `${name}:${config.background} !important;`),
     ...(foregrounds[config.app] || []).map(name => `${name}:${config.foreground} !important;`),
   ].join('');
-  const selectorTokens = (sidebarBackgroundSelectors[config.app] || [])
+  const selectorTokens = (backgroundSelectors[config.app] || [])
     .map(selector => `${selector}{background-color:${config.background} !important;}`).join('');
 
   style.textContent = `

@@ -248,9 +248,10 @@ func (p *pageConnection) dispose() {
 	}
 }
 
+var cdpHTTPClient = &http.Client{Timeout: 1500 * time.Millisecond}
+
 func readTargets(port int, acceptsPage func(string) bool) ([]cdpTarget, error) {
-	client := &http.Client{Timeout: 1500 * time.Millisecond}
-	response, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/json/list", port))
+	response, err := cdpHTTPClient.Get(fmt.Sprintf("http://127.0.0.1:%d/json/list", port))
 	if err != nil {
 		return nil, err
 	}

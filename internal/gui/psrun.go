@@ -100,8 +100,10 @@ func (e *psError) Error() string { return e.message }
 func psExec(command string, timeout time.Duration) (string, string, *psError) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.Command(powershellPath(), psArgs(command)...)
+	cmd := exec.CommandContext(ctx, powershellPath(), psArgs(command)...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	// 脚本启动的子进程可能继承输出管道；超时结束 PowerShell 后不再等待它们关闭管道。
+	cmd.WaitDelay = 2 * time.Second
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

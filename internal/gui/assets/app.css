@@ -388,3 +388,13 @@ input[type='number']:focus:not(:disabled)::-webkit-inner-spin-button, input[type
 .style-color-control { display: flex; align-items: center; gap: 8px; }
 .style-color-control .field-input { width: 108px; }
 .style-color-picker { width: 32px; height: 30px; padding: 2px; border: 1px solid currentColor; border-radius: 6px; background: transparent; cursor: pointer; }
+.setting-row:has(.style-color-field) .setting-value { flex: 1; flex-direction: row; align-items: flex-start; justify-content: flex-end; gap: 32px; max-width: none; }
+.style-color-field { min-width: 0; }
+.style-color-field-control { display: flex; align-items: center; gap: 12px; }
+.style-color-label { flex-shrink: 0; font-size: .8rem; color: var(--secondary); }
+.style-color-field .field-error { max-width: 100%; }
+@media (max-width: 1080px) {
+  .setting-row:has(.style-color-field) { align-items: flex-start; padding-block: 14px; }
+  .setting-row:has(.style-color-field) .setting-label { flex: 0 0 auto; }
+  .setting-row:has(.style-color-field) .setting-value { flex-wrap: wrap; gap: 12px 24px; }
+}

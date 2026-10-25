@@ -30,7 +30,8 @@ func withApplicationStyle(id string, s settings.DroidSettings, layout string) st
 	config, _ := json.Marshal(map[string]string{"app": id, "background": background, "foreground": foreground})
 	colors := strings.ReplaceAll(applicationColorsSource, "__DECK_STYLE_CONFIG__", string(config))
 	lineHeight := strings.ReplaceAll(applicationLineHeightSource, "__DECK_LINE_HEIGHT_PERCENT__", itoa(percent))
-	return `(() => { const apply = () => { ` + strings.TrimSuffix(strings.TrimSpace(layout), ";") + `;
+	return `(() => { if (window.frameElement?.id === 'deck-native-style-sampler') return true;
+const apply = () => { ` + strings.TrimSuffix(strings.TrimSpace(layout), ";") + `;
 ` + nativeStyleSamplerSource + "\n" + colors + "\n" + lineHeight + `
 return true; }; if (document.documentElement) return apply();
 document.addEventListener('DOMContentLoaded', apply, { once: true }); return true; })()`

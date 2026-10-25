@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"deck/internal/settings"
 )
@@ -55,6 +56,17 @@ func jsString(value string) string {
 	return strings.TrimSuffix(buf.String(), "\n")
 }
 
+type injectionTemplate struct {
+	CSS    string `json:"css"`
+	Source string `json:"source"`
+}
+
+var injectionTemplates = sync.OnceValue(func() map[string]injectionTemplate {
+	templates := map[string]injectionTemplate{}
+	_ = json.Unmarshal(injectionTemplatesJSON, &templates)
+	return templates
+})
+
 var templateVarPattern = regexp.MustCompile(`\$\{(\w+)\}|\$(\w+)`)
 
 var genericFontPattern = regexp.MustCompile(`(?i)^(serif|sans-serif|monospace|system-ui|ui-[a-z-]+|cursive|fantasy)$`)
@@ -87,12 +99,7 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	if id == "manus" {
 		return manusInjection(s)
 	}
-	templates := map[string]struct {
-		CSS    string `json:"css"`
-		Source string `json:"source"`
-	}{}
-	_ = json.Unmarshal(injectionTemplatesJSON, &templates)
-	template := templates[id]
+	template := injectionTemplates()[id]
 	font := safeFontFamily(s.FontFamily)
 	hiddenUiCss := []string{}
 	if s.HideLocalMerge {

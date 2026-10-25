@@ -164,7 +164,7 @@ func (d *droidRuntime) waitForPages(port int, s settings.DroidSettings, log LogF
 // RunDroid launches or applies the Droid desktop app.
 func (d *droidRuntime) Run(action string, s settings.DroidSettings, log LogFunc, onStage func(string)) error {
 	// 先确认安装路径，避免路径无效时中断已有的界面守护连接。
-	app, err := d.rt.detectDroid(s.ExecutablePath)
+	app, err := d.rt.DetectApplication(settings.Droid, s.ExecutablePath, false)
 	if err != nil {
 		return err
 	}

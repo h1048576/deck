@@ -1,4 +1,5 @@
 (() => {
+  if (window.frameElement?.id === 'deck-native-style-sampler') return;
   const key = '__deckCodexLineHeight';
   const percent = __DECK_LINE_HEIGHT_PERCENT__;
   if (window[key]?.version === 2 && window[key].percent === percent) return;

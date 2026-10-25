@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"deck/internal/appdir"
 	"deck/internal/settings"
 )
 
@@ -30,6 +31,12 @@ type installation struct {
 
 var cdpPortPattern = regexp.MustCompile(`CDP 端口 (\d+)`)
 var failPattern = regexp.MustCompile(`失败：`)
+var quitErrorPattern = regexp.MustCompile(`(?m)(?:^|\r?\n)WIDE_QUIT_ERROR:([^\r\n]+)`)
+var qoderPagePattern = regexp.MustCompile(`^qoder(?:-cn)?-app://renderer/`)
+var manusPagePattern = regexp.MustCompile(`^app://manus/(?:app|login|task)(?:[/?#]|$)`)
+
+// 检测脚本会加载 Appx/CIM 模块，同时启动过多 PowerShell 会造成明显的 CPU 峰值。
+var detectSlots = make(chan struct{}, 3)
 
 type detectCacheEntry struct {
 	value   *installation
@@ -40,6 +47,7 @@ type applicationRuntime struct {
 	scriptsDir string
 	home       string
 	droid      *droidRuntime
+	installs   *installationStore
 
 	mu            sync.Mutex
 	connections   map[string]*pageConnection
@@ -58,6 +66,7 @@ func newApplicationRuntime(scriptsDir string) *applicationRuntime {
 		pendingDetect: map[string]*detectWaiter{},
 		detectResults: map[string]*installation{},
 		detectErrors:  map[string]error{},
+		installs:      newInstallationStore(filepath.Join(appdir.RuntimeData(), "detect-cache.json")),
 	}
 	rt.droid = newDroidRuntime(rt)
 	return rt
@@ -73,15 +82,11 @@ func (rt *applicationRuntime) connection(id string) *pageConnection {
 		var accepts func(string) bool
 		switch id {
 		case "qoder":
-			accepts = func(url string) bool {
-				return regexp.MustCompile(`^qoder(?:-cn)?-app://renderer/`).MatchString(url)
-			}
+			accepts = qoderPagePattern.MatchString
 		case "dsh":
 			accepts = func(url string) bool { return strings.HasPrefix(url, "dsh-app://app/") }
 		case "manus":
-			accepts = func(url string) bool {
-				return regexp.MustCompile(`^app://manus/(?:app|login|task)(?:[/?#]|$)`).MatchString(url)
-			}
+			accepts = manusPagePattern.MatchString
 		}
 		value = newPageConnection(settings.Applications[id].Name, styleID, accepts)
 		rt.connections[id] = value
@@ -139,7 +144,22 @@ func (rt *applicationRuntime) DetectApplication(id string, path string, force bo
 	rt.pendingDetect[key] = waiter
 	rt.detectMutex.Unlock()
 
-	value, err := rt.resolveApplication(id, path)
+	var value *installation
+	var err error
+	var persisted *installation
+	if !force {
+		persisted = rt.installs.lookup(key)
+	}
+	if persisted != nil {
+		value = persisted
+	} else {
+		detectSlots <- struct{}{}
+		value, err = rt.resolveApplication(id, path)
+		<-detectSlots
+		if err == nil {
+			rt.installs.save(key, value)
+		}
+	}
 	if err == nil {
 		ttl := time.Duration(settings.InstallCacheMs) * time.Millisecond
 		if value == nil {
@@ -250,14 +270,8 @@ func (rt *applicationRuntime) detectDroid(customPath string) (*installation, err
 // IsApplicationRunning checks whether the app currently runs.
 func (rt *applicationRuntime) IsApplicationRunning(id string, app *installation) (bool, error) {
 	if isWindowsRuntime() {
-		helper := filepath.Join(rt.scriptsDir, "application-processes.ps1")
-		command := "$ErrorActionPreference='Stop'; . " + psQuote(helper) + "; Test-WideApplicationRunning " + psQuote(app.Path) + " " + psQuote(id) + " | ConvertTo-Json -Compress"
-		stdout, _, failure := psExec(command, 10*time.Second)
-		if failure != nil {
-			return false, fmt.Errorf("无法确认 %s 的运行状态。", settings.Applications[id].Name)
-		}
-		var running bool
-		if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &running); err != nil {
+		running, err := applicationRunning(app.Path, id)
+		if err != nil {
 			return false, fmt.Errorf("无法确认 %s 的运行状态。", settings.Applications[id].Name)
 		}
 		return running, nil
@@ -544,7 +558,7 @@ func (rt *applicationRuntime) QuitApplication(id string, path string, detected *
 			return fmt.Errorf("系统 PowerShell 不可用。")
 		}
 		detail := ""
-		if match := regexp.MustCompile(`(?m)(?:^|\r?\n)WIDE_QUIT_ERROR:([^\r\n]+)`).FindStringSubmatch(failure.stderr); match != nil {
+		if match := quitErrorPattern.FindStringSubmatch(failure.stderr); match != nil {
 			var message string
 			if json.Unmarshal([]byte(match[1]), &message) == nil {
 				detail = message

@@ -1,6 +1,9 @@
 (() => {
+  if (window.frameElement?.id === 'deck-native-style-sampler') return;
   const key = '__deckNativeStyles';
-  if (window[key]?.version === 1) return;
+  if (window[key]?.version === 2) return;
+  window.__deckCodexLineHeight?.dispose();
+  window.__deckApplicationColors?.dispose();
   window[key]?.dispose();
   let frame = null;
   let nativeDocument = null;
@@ -18,8 +21,11 @@
       }
     }
   };
-  const cssText = sheets => [...sheets].filter(sheet => !ownNode(sheet.ownerNode)).map(sheet => {
-    try { return [...sheet.cssRules].map(rule => rule.cssText).join('\n'); } catch { return ''; }
+  const cssText = sheets => [...sheets].filter(sheet => !sheet.disabled && !ownNode(sheet.ownerNode)).map(sheet => {
+    try {
+      const css = [...sheet.cssRules].map(rule => rule.styleSheet ? cssText([rule.styleSheet]) : rule.cssText).join('\n');
+      return sheet.media?.mediaText ? `@media ${sheet.media.mediaText} { ${css} }` : css;
+    } catch { return ''; }
   }).join('\n');
   const clone = (node, inShadow = false) => {
     if (!(node instanceof Element)) {
@@ -81,7 +87,7 @@
       nativeDocument.head.querySelectorAll('style').forEach(style => style.remove());
       const style = nativeDocument.createElement('style');
       style.textContent = cssText([...document.styleSheets, ...(document.adoptedStyleSheets || [])]) +
-        '\n*, *::before, *::after { animation:none!important; transition:none!important; }';
+        '\n*, *::before, *::after { animation:none!important; transition:none!important; }\n* { content-visibility:visible!important; }';
       nativeDocument.head.append(style);
       cssDirty = false;
     }
@@ -157,6 +163,8 @@
           continue;
         }
         if (record.type === 'attributes') {
+          if (!(record.target instanceof HTMLElement)) continue;
+          if (['disabled', 'media', 'href'].includes(record.attributeName)) continue;
           if (record.oldValue === record.target.getAttribute(record.attributeName)) continue;
           if (record.attributeName === 'style' && signature(record.oldValue) === signature(record.target.getAttribute('style'))) continue;
           queue(record.target);
@@ -166,13 +174,13 @@
           // 删除节点只清理缓存；不因一个图标/流式占位符被替换而重采样整段历史。
           for (const node of removed) copies.get(node)?.remove();
           if (removed.length) cleanup?.();
-          for (const node of added) queue(node);
-          if (added.some(node => node.matches('style, link[rel="stylesheet"]'))) queue(document.documentElement, true);
+          for (const node of added) if (node instanceof HTMLElement) queue(node);
+          if ([...added, ...removed].some(node => node.matches('style, link[rel="stylesheet"]'))) queue(document.documentElement, true);
         }
       }
     });
     const observe = root => observer.observe(root, { childList: true, subtree: true, attributes: true, attributeOldValue: true,
-      attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme'] });
+      attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme', 'disabled', 'media', 'href'] });
     function refresh() {
       timer = null;
       if (stopped || !document.body || (!full && !dirty.size)) return;
@@ -212,22 +220,39 @@
     }
     const onFocusOut = () => { if (full || dirty.size) { clearTimeout(timer); timer = setTimeout(refresh, 0); } };
     const invalidate = () => queue(document.documentElement, true);
+    let viewport = `${window.innerWidth}:${window.innerHeight}:${window.devicePixelRatio}`;
+    const onResize = () => {
+      const current = `${window.innerWidth}:${window.innerHeight}:${window.devicePixelRatio}`;
+      if (viewport === current) return;
+      viewport = current;
+      invalidate();
+    };
+    let loadedFonts = new Set([...(document.fonts || [])].filter(font => font.status === 'loaded'));
+    const onFontsLoaded = () => {
+      const current = new Set([...(document.fonts || [])].filter(font => font.status === 'loaded'));
+      if (current.size === loadedFonts.size && [...current].every(font => loadedFonts.has(font))) return;
+      loadedFonts = current;
+      invalidate();
+    };
     const onLoad = event => { if (event.target instanceof Element && event.target.matches('link[rel="stylesheet"], style')) invalidate(); };
-    window.addEventListener('resize', invalidate);
-    document.fonts?.addEventListener('loadingdone', invalidate);
+    window.addEventListener('resize', onResize);
+    document.fonts?.addEventListener('loadingdone', onFontsLoaded);
     document.addEventListener('load', onLoad, true);
     document.addEventListener('focusout', onFocusOut, true);
+    document.addEventListener('DOMContentLoaded', invalidate);
+    if (document.documentElement) observe(document.documentElement);
     refresh();
     return { stats, dispose() {
       stopped = true;
       clearTimeout(timer);
       observer.disconnect();
-      window.removeEventListener('resize', invalidate);
-      document.fonts?.removeEventListener('loadingdone', invalidate);
+      window.removeEventListener('resize', onResize);
+      document.fonts?.removeEventListener('loadingdone', onFontsLoaded);
       document.removeEventListener('load', onLoad, true);
       document.removeEventListener('focusout', onFocusOut, true);
+      document.removeEventListener('DOMContentLoaded', invalidate);
       if (--clients === 0) { frame?.remove(); frame = null; nativeDocument = null; copies = new WeakMap(); }
     } };
   };
-  window[key] = { version: 1, watch, dispose() { frame?.remove(); } };
+  window[key] = { version: 2, watch, dispose() { frame?.remove(); } };
 })();

@@ -1,7 +1,6 @@
 // deck 前端入口：外壳、页面切换、批量操作、设置持久化。
 import { el, html, icon, SettingRow, Switch, PixelControl, DimensionControl, SelectControl, FontControl } from './controls.js'
 import { api, messageOf } from './api.js'
-import { agentsResource, skillsResource, modelsResource, mcpsResource, displayHarnessPath } from './resources.js'
 import { createHarnessPage } from './harnesspage.js'
 import { ModelDialog } from './dialogs.js'
 
@@ -342,12 +341,37 @@ function renderPageHeader() {
 // ---- 页面渲染 ----
 const pages = { start: el('div', 'settings-page global-page'), app: el('div'), harness: null, settings: el('div', 'settings-page app-settings-page') }
 
+// 异步回调（保存、检测、轮询）合并到下一帧重绘，避免同一帧内多次整页重建。
+let pageFrame = 0
+function schedulePage() {
+  if (!pageFrame) pageFrame = requestAnimationFrame(() => { pageFrame = 0; renderPage() })
+}
+
+// 整页重绘会替换所有节点；按 id 恢复焦点、光标和滚动位置，避免输入过程中焦点丢失。
+function capturePageFocus() {
+  const scroller = document.getElementById('main-content')
+  const scrollTop = scroller.scrollTop
+  const active = document.activeElement
+  const id = active instanceof HTMLElement && active.id && shell.pageContainer.contains(active) ? active.id : ''
+  const selection = id && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd, active.selectionDirection] : null
+  return () => {
+    scroller.scrollTop = scrollTop
+    if (!id) return
+    const next = document.getElementById(id)
+    if (!(next instanceof HTMLElement) || next === active || next.disabled || !shell.pageContainer.contains(next)) return
+    next.focus({ preventScroll: true })
+    if (selection) { try { next.setSelectionRange(...selection) } catch { /* 部分输入类型不支持选区 */ } }
+  }
+}
+
 function renderPage() {
+  if (pageFrame) { cancelAnimationFrame(pageFrame); pageFrame = 0 }
   const container = shell.pageContainer
   if (!state.ready) {
     container.textContent = ''
     return
   }
+  const restoreFocus = capturePageFocus()
   container.textContent = ''
 
   if (state.bootError) {
@@ -404,11 +428,12 @@ function renderPage() {
       harnessPage.setInitialCollapse(state.harnessSettings)
     }
     container.appendChild(harnessPage.node)
-    // 订阅回调在节点挂载前触发过 render（isConnected=false 被跳过），挂载后主动刷新绘制。
-    harnessPage.refreshAll(false)
+    // 订阅回调在节点挂载前触发过 render（isConnected=false 被跳过），挂载后补绘一次；数据刷新只在进入页面和回到窗口时进行。
+    harnessPage.render()
   } else if (state.active === 'settings') container.appendChild(renderSettingsPage())
   else container.appendChild(renderApplicationPage(state.active))
 
+  restoreFocus()
   if (state.restoreConfirmation) renderRestoreConfirmation()
 }
 
@@ -543,12 +568,12 @@ function requestDetection(id, force = true, pathOverride) {
   if (!force && detectionFresh(state.detectionCache.get(key))) return Promise.resolve()
   state.detectionCache.set(key, { installation: state.detectionCache.get(key)?.installation ?? null, error: '', checking: true, checked: false, checkedAt: 0 })
   const isActive = state.active === id
-  if (isActive) renderPage()
+  if (isActive) schedulePage()
   const request = api('detect', { featureId: id, path: settings.executablePath, force }).then(installation => {
     state.detectionCache.set(key, { installation, error: '', checking: false, checked: true, checkedAt: Date.now() })
   }).catch(error => {
     state.detectionCache.set(key, { installation: null, error: messageOf(error), checking: false, checked: true, checkedAt: Date.now() })
-  }).finally(() => { state.detectionRequests.delete(key); if (state.active === id) renderPage() })
+  }).finally(() => { state.detectionRequests.delete(key); if (state.active === id) schedulePage() })
   state.detectionRequests.set(key, request)
   return request
 }
@@ -638,7 +663,12 @@ function renderApplicationPage(id) {
     if (errors.fontWeight) weight.setAttribute('aria-describedby', 'fontWeight-error')
     weight.addEventListener('input', () => update('fontWeight', Number(weight.value)))
     fontList.appendChild(SettingRow('字重', 'fontWeight', errors.fontWeight, weight))
+    const colorFields = []
     for (const [key, label, fallback] of [['backgroundColor', '背景', '#111111'], ['foregroundColor', '前景', '#F0F0F0']]) {
+      const field = el('div', 'style-color-field')
+      const fieldControl = el('div', 'style-color-field-control')
+      const fieldLabel = el('label', 'style-color-label', label)
+      fieldLabel.htmlFor = key
       const control = el('div', 'style-color-control')
       const picker = el('input', 'style-color-picker')
       picker.type = 'color'
@@ -651,6 +681,10 @@ function renderApplicationPage(id) {
       input.maxLength = 7
       input.spellcheck = false
       input.disabled = disabled
+      if (errors[key]) {
+        input.setAttribute('aria-invalid', 'true')
+        input.setAttribute('aria-describedby', `${key}-error`)
+      }
       const change = value => {
         const valid = /^#[0-9a-f]{6}$/i.test(value)
         input.setAttribute('aria-invalid', String(!valid))
@@ -660,8 +694,16 @@ function renderApplicationPage(id) {
       input.addEventListener('input', () => change(input.value))
       picker.addEventListener('input', () => { input.value = picker.value.toUpperCase(); change(input.value) })
       control.append(picker, input)
-      fontList.appendChild(SettingRow(label, key, errors[key], control))
+      fieldControl.append(fieldLabel, control)
+      field.appendChild(fieldControl)
+      if (errors[key]) {
+        const error = el('p', 'field-error', errors[key])
+        error.id = `${key}-error`
+        field.appendChild(error)
+      }
+      colorFields.push(field)
     }
+    fontList.appendChild(SettingRow('颜色', null, null, ...colorFields))
   }
   if (capability.fontScript) {
     const scriptRow = el('div', 'setting-row')
@@ -958,7 +1000,7 @@ function refreshTerminalConfigs() {
     state.terminalConfigsError = ''
   }).catch(error => {
     state.terminalConfigsError = messageOf(error)
-  }).finally(() => { if (state.active === 'settings') renderPage() })
+  }).finally(() => { if (state.active === 'settings') schedulePage() })
 }
 
 let terminalTimer = null
@@ -1057,12 +1099,12 @@ function persist(domain, task) {
     saveErrorsRef.current = next
     state.saveErrors = next
     state.configWarning = ''
-    renderPage()
+    schedulePage()
   }).catch(error => {
     if (revision !== saveRevisions[domain]) return
     saveErrorsRef.current = { ...saveErrorsRef.current, [domain]: messageOf(error) }
     state.saveErrors = saveErrorsRef.current
-    renderPage()
+    schedulePage()
   }).finally(() => { pending.delete(promise) })
   pending.add(promise)
 }
@@ -1263,7 +1305,7 @@ async function run(id, action) {
   if (action === 'exit' ? !!errors.executablePath : Object.keys(errors).length) return
   state.busy = { id, action }
   state.notice = null
-  renderShell(); renderPage(); renderToast()
+  renderShell(); renderToast()
   try {
     await Promise.all([...pending])
     const value = state.applications[id]
@@ -1282,7 +1324,7 @@ async function run(id, action) {
     state.notice = { text: messageOf(error), error: true }
   } finally {
     state.busy = null
-    renderShell(); renderPage(); renderToast()
+    renderShell(); renderToast()
   }
 }
 
@@ -1291,11 +1333,12 @@ async function runAll(action, ids) {
   const order = state.menuOrder.filter(id => !ids || ids.includes(id))
   if (!order.length) return
   state.batchRunning = true
+  batchProgressText = ''
   state.busy = { id: 'all', action, scope: ids ? 'selected' : 'all' }
   state.notice = null
   state.batchError = ''
   state.batchProgress = { action, applicationIds: order, stages: Object.fromEntries(order.map(id => [id, 'queued'])), currentIds: [], completed: 0, total: order.length, results: [] }
-  renderShell(); renderPage(); renderToast()
+  renderShell(); renderToast()
   try {
     await Promise.all([...pending])
     if (action !== 'exit' && Object.keys(saveErrorsRef.current).length) throw new Error('自动保存失败，请修正设置后再执行全局操作。')
@@ -1307,7 +1350,7 @@ async function runAll(action, ids) {
   } finally {
     state.batchRunning = false
     state.busy = null
-    renderShell(); renderPage(); renderToast()
+    renderShell(); renderToast()
   }
 }
 
@@ -1317,6 +1360,7 @@ function setActive(id) {
   renderShell()
   // 配置文件可能被 Windows Terminal 或手动修改，进入设置页时重新读取。
   if (id === 'settings') void refreshTerminalConfigs()
+  if (id === 'harness') harnessPage?.refreshStale()
 }
 
 // ---- 恢复确认 ----
@@ -1452,7 +1496,6 @@ async function bootstrap() {
   applyAppearance()
   if (harnessPage && state.harnessSettings) harnessPage.setInitialCollapse(state.harnessSettings)
   renderShell()
-  renderPage()
   // 首屏绘制后预检各应用安装。
   setTimeout(() => {
     state.menuOrder.filter(id => id !== state.active).forEach(id => {
@@ -1483,33 +1526,38 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
 })
 
 // 回到窗口时刷新缓存与检测。
+// Harness 数据只在 Harness 页可见时刷新；其他页面回到窗口不扫描配置，进入 Harness 页时再刷新过期数据。
 window.addEventListener('focus', () => {
-  if (Date.now() - (modelsResource.snapshot().updatedAt) >= 2000) void modelsResource.refresh(true)
-  if (Date.now() - (mcpsResource.snapshot().updatedAt) >= 2000) void mcpsResource.refresh(true)
-  if (Date.now() - (skillsResource.snapshot().updatedAt) >= 2000) void skillsResource.refresh(true)
-  if (Date.now() - (agentsResource.snapshot().updatedAt) >= 2000) void agentsResource.refresh(true)
+  refreshWindowState()
+  if (state.active === 'harness') harnessPage?.refreshStale()
   if (!state.busy && !document.hidden && ['settings', 'start', 'harness'].indexOf(state.active) === -1) {
     void requestDetection(state.active, false)
   }
   if (state.active === 'settings' && !document.hidden) void refreshTerminalConfigs()
 })
 
-// 窗口最大化状态轮询。
-setInterval(async () => {
-  if (!state.desktop) return
-  try {
-    const data = await api('window/state')
-    if (data.maximized !== state.windowMaximized) {
-      state.windowMaximized = data.maximized
-      renderTitlebar()
-    }
-  } catch { /* 服务未就绪时忽略 */ }
-}, 500)
+// 最大化、还原和贴靠都会改变窗口尺寸，只在尺寸变化后查询状态，不再定时轮询主线程。
+let windowStateTimer = null
+function refreshWindowState() {
+  clearTimeout(windowStateTimer)
+  windowStateTimer = setTimeout(async () => {
+    if (!state.desktop) return
+    try {
+      const data = await api('window/state')
+      if (data.maximized !== state.windowMaximized) {
+        state.windowMaximized = data.maximized
+        renderTitlebar()
+      }
+    } catch { /* 服务未就绪时忽略 */ }
+  }, 120)
+}
+window.addEventListener('resize', refreshWindowState)
 
 // 通知轮询（后台连接错误等）。
 let noticeCursor = 0
 setInterval(async () => {
-  if (!state.desktop) return
+  // 通知按游标累积在后端，窗口隐藏时暂停轮询不会丢失。
+  if (!state.desktop || document.hidden) return
   try {
     const data = await api(`notices?since=${noticeCursor}`)
     noticeCursor = data.cursor
@@ -1520,14 +1568,18 @@ setInterval(async () => {
   } catch { /* 忽略 */ }
 }, 1000)
 
-// 批量进度轮询。
+// 批量进度轮询；进度未变化时不重绘。
+let batchProgressText = ''
 setInterval(async () => {
   if (!state.desktop || !state.batchRunning) return
   try {
     const data = await api('batch/progress')
     if (data.progress && data.active) {
+      const text = JSON.stringify(data.progress)
+      if (text === batchProgressText) return
+      batchProgressText = text
       state.batchProgress = data.progress
-      renderPage()
+      schedulePage()
     }
   } catch { /* 忽略 */ }
 }, 400)

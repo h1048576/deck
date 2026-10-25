@@ -355,6 +355,7 @@ body * {
 
   const apply = () => {
     const id = 'codex-wide-width-override';
+    if (window.frameElement?.id === 'deck-native-style-sampler') return true;
     let style = document.getElementById(id);
     if (!style) {
       style = document.createElement('style');
