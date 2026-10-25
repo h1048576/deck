@@ -15,9 +15,10 @@ import (
 	"deck/internal/settings"
 )
 
-// terminalDefaultFace 是 Windows Terminal 自带的默认字体。
-// default 在 deck 和受管应用里表示系统界面字体，但那是比例字体，终端里会错位，所以终端改用自带的默认字体。
-const terminalDefaultFace = "Cascadia Mono"
+// terminalDefaultFace 是终端里 default 选项对应的字体。
+// default 在 deck 和受管应用里表示系统界面字体，但那是比例字体，终端里会错位，
+// 所以终端跟随 deck 的统一默认字体（等宽，支持中文）。
+const terminalDefaultFace = "Maple Mono NF CN"
 
 var windowsEnvPattern = regexp.MustCompile(`%([A-Za-z0-9_()]+)%`)
 

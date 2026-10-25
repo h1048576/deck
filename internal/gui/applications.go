@@ -405,6 +405,9 @@ func (rt *applicationRuntime) runWindows(id string, action string, s settings.Dr
 	if capability.FontSize {
 		args = append(args, "-FontSize", strconv.Itoa(s.FontSize))
 	}
+	if id == settings.Codex {
+		args = append(args, "-LineHeightPercent", strconv.Itoa(s.LineHeightPercent))
+	}
 	if capability.MaxWidth {
 		args = append(args, "-MaxWidth", psQuote(s.MaxWidth))
 	}

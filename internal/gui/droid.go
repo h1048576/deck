@@ -62,5 +62,5 @@ func droidInjectionSource(s settings.DroidSettings) string {
     if (document.documentElement) return apply();
     document.addEventListener('DOMContentLoaded', apply, {once:true}); return true;
   })()`)
-	return sb.String()
+	return withApplicationStyle(settings.Droid, s, sb.String())
 }

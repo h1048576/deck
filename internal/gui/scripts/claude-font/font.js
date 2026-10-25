@@ -1,7 +1,7 @@
 // 在 Claude Desktop 内容页的开发者工具 Console 或 Snippet 中执行。
 // 更改字体，并去掉行内代码的红色；页面刷新或应用重启后需要重新执行。
 (() => {
-  const fontFamily = 'Cascadia Mono, LXGW WenKai Mono'
+  const fontFamily = 'Maple Mono NF CN'
   const key = '__deckClaudeFont'
   const styleId = 'deck-claude-font'
   if (location.protocol !== 'app:' || location.hostname !== 'localhost' || !document.body) {

@@ -35,20 +35,23 @@ const MissingInstallCacheMs = 15000
 
 // DroidSettings is the per-application appearance configuration.
 type DroidSettings struct {
-	Width          string `json:"width"`
-	SidebarWidth   string `json:"sidebarWidth"`
-	MaxWidth       string `json:"maxWidth"`
-	ChatHeight     string `json:"chatHeight"`
-	FontFamily     string `json:"fontFamily"`
-	FontSize       int    `json:"fontSize"`
-	FontWeight     int    `json:"fontWeight"`
-	TerminalFollow bool   `json:"terminalFollow"`
-	HideLocalMerge bool   `json:"hideLocalMerge"`
-	HideGitDiff    bool   `json:"hideGitDiff"`
-	Port           int    `json:"port"`
-	ExecutablePath string `json:"executablePath"`
-	HideChanges    bool   `json:"hideChanges"`
-	PreventSummary bool   `json:"preventSummary"`
+	Width             string `json:"width"`
+	SidebarWidth      string `json:"sidebarWidth"`
+	MaxWidth          string `json:"maxWidth"`
+	ChatHeight        string `json:"chatHeight"`
+	FontFamily        string `json:"fontFamily"`
+	FontSize          int    `json:"fontSize"`
+	FontWeight        int    `json:"fontWeight"`
+	LineHeightPercent int    `json:"lineHeightPercent,omitempty"`
+	BackgroundColor   string `json:"backgroundColor"`
+	ForegroundColor   string `json:"foregroundColor"`
+	TerminalFollow    bool   `json:"terminalFollow"`
+	HideLocalMerge    bool   `json:"hideLocalMerge"`
+	HideGitDiff       bool   `json:"hideGitDiff"`
+	Port              int    `json:"port"`
+	ExecutablePath    string `json:"executablePath"`
+	HideChanges       bool   `json:"hideChanges"`
+	PreventSummary    bool   `json:"preventSummary"`
 	// DefaultReasoningEffort 指定 DSH 切换模型后的推理等级。
 	DefaultReasoningEffort string `json:"defaultReasoningEffort"`
 	// ShowWorkbuddyCredits 在 DSH 底部 context 用量后、WorkBuddy 输入框上下文用量左侧显示 WorkBuddy 积分。
@@ -129,7 +132,7 @@ func DefaultWindowSizeOptions() []string {
 // DefaultTerminal 对应正式版、预览版和 Canary 版 Windows Terminal。
 func DefaultTerminal() TerminalSettings {
 	return TerminalSettings{
-		FontFamily:        "Cascadia Mono, LXGW WenKai Mono",
+		FontFamily:        "Maple Mono NF CN",
 		FontSize:          12,
 		FontWeight:        100,
 		WindowSize:        "120x30",
@@ -205,7 +208,7 @@ func DefaultHarnessSettings() HarnessSettings {
 
 // DefaultAppearance mirrors DEFAULT_APPEARANCE.
 func DefaultAppearance() AppearanceSettings {
-	return AppearanceSettings{FontFamily: "Cascadia Mono, LXGW WenKai Mono", FontSize: 17, Mode: "compact"}
+	return AppearanceSettings{FontFamily: "Maple Mono NF CN", FontSize: 17, Mode: "compact"}
 }
 
 // SystemFont is the fallback font stack for '系统默认'.
@@ -223,7 +226,7 @@ const SystemFontFamily = "Segoe UI, Microsoft YaHei"
 
 // DefaultFontOptions 是字体下拉框的默认选项。
 func DefaultFontOptions() []string {
-	return []string{DefaultFontOption, "Cascadia Mono, LXGW WenKai Mono", "Maple Mono Normal NF CN"}
+	return []string{DefaultFontOption, "Maple Mono NF CN", "Cascadia Mono, LXGW WenKai Mono", "Maple Mono Normal NF CN"}
 }
 
 // IsDefaultFont 判断字体值是否表示系统界面字体。
@@ -311,7 +314,8 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 	base := func(id FeatureId) DroidSettings {
 		return DroidSettings{
 			Width: "70vw", SidebarWidth: "15vw", MaxWidth: "90rem", ChatHeight: "80px",
-			FontFamily: "Cascadia Mono, LXGW WenKai Mono", FontSize: 17, FontWeight: 300, TerminalFollow: true,
+			FontFamily: "Maple Mono NF CN", FontSize: 17, FontWeight: 300, TerminalFollow: true,
+			LineHeightPercent: 100, BackgroundColor: "#111111", ForegroundColor: "#F0F0F0",
 			ShowWorkbuddyCredits:   Applications[id].Credits,
 			HiddenModelPatterns:    []string{},
 			DefaultReasoningEffort: "native",
@@ -319,7 +323,12 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		}
 	}
 	return map[FeatureId]DroidSettings{
-		Codex:     func() DroidSettings { s := base(Codex); s.FontWeight = 100; s.PreventSummary = true; return s }(),
+		Codex: func() DroidSettings {
+			s := base(Codex)
+			s.FontWeight = 100
+			s.PreventSummary = true
+			return s
+		}(),
 		Droid:     base(Droid),
 		Zcode:     func() DroidSettings { s := base(Zcode); s.FontSize = 18; s.HideChanges = true; return s }(),
 		Workbuddy: func() DroidSettings { s := base(Workbuddy); s.FontWeight = 200; return s }(),
@@ -413,6 +422,8 @@ func ValidFontFamily(value string) bool {
 	return strings.TrimSpace(value) != "" && len(value) <= 300 && !fontControlRune.MatchString(value)
 }
 
+var validStyleColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
 // SettingsErrors validates per-application settings, mirroring settingsErrors().
 func SettingsErrors(v DroidSettings) map[string]string {
 	errors := map[string]string{}
@@ -433,6 +444,15 @@ func SettingsErrors(v DroidSettings) map[string]string {
 	}
 	if v.FontWeight < 100 || v.FontWeight > 1000 {
 		errors["fontWeight"] = "字重须为 100–1000 的整数"
+	}
+	if v.LineHeightPercent <= 0 || v.LineHeightPercent%5 != 0 {
+		errors["lineHeightPercent"] = "行高须为正整数，且为 5% 的倍数"
+	}
+	if !validStyleColor.MatchString(v.BackgroundColor) {
+		errors["backgroundColor"] = "背景须为六位十六进制颜色，例如 #111111"
+	}
+	if !validStyleColor.MatchString(v.ForegroundColor) {
+		errors["foregroundColor"] = "前景须为六位十六进制颜色，例如 #F0F0F0"
 	}
 	if !ValidFontFamily(v.FontFamily) {
 		errors["fontFamily"] = FontFamilyError
@@ -466,6 +486,14 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	defaults := DefaultApplications()
 	defaultDroid := defaults[Droid]
 	fallback := defaults[id]
+	for key, color := range map[string]string{"backgroundColor": fallback.BackgroundColor, "foregroundColor": fallback.ForegroundColor} {
+		if _, ok := input[key]; !ok {
+			input[key] = color
+		}
+	}
+	if _, ok := input["lineHeightPercent"]; !ok {
+		input["lineHeightPercent"] = float64(fallback.LineHeightPercent)
+	}
 	if _, ok := input["sidebarWidth"]; !ok {
 		input["sidebarWidth"] = fallback.SidebarWidth
 	}
@@ -498,6 +526,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		{"fontFamily", "string", &value.FontFamily, nil, nil, defaultDroid.FontFamily},
 		{"fontSize", "number", nil, &value.FontSize, nil, defaultDroid.FontSize},
 		{"fontWeight", "number", nil, &value.FontWeight, nil, defaultDroid.FontWeight},
+		{"lineHeightPercent", "number", nil, &value.LineHeightPercent, nil, fallback.LineHeightPercent},
+		{"backgroundColor", "string", &value.BackgroundColor, nil, nil, fallback.BackgroundColor},
+		{"foregroundColor", "string", &value.ForegroundColor, nil, nil, fallback.ForegroundColor},
 		{"terminalFollow", "boolean", nil, nil, &value.TerminalFollow, defaultDroid.TerminalFollow},
 		{"hideLocalMerge", "boolean", nil, nil, &value.HideLocalMerge, defaultDroid.HideLocalMerge},
 		{"hideGitDiff", "boolean", nil, nil, &value.HideGitDiff, defaultDroid.HideGitDiff},
@@ -540,7 +571,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	}
 	if errs := SettingsErrors(value); len(errs) > 0 {
 		// Report errors in a stable order matching the renderer's first-error semantics.
-		for _, key := range []string{"width", "sidebarWidth", "maxWidth", "chatHeight", "fontSize", "fontWeight", "fontFamily", "port", "executablePath"} {
+		for _, key := range []string{"width", "sidebarWidth", "maxWidth", "chatHeight", "fontSize", "lineHeightPercent", "fontWeight", "backgroundColor", "foregroundColor", "fontFamily", "port", "executablePath"} {
 			if msg, ok := errs[key]; ok {
 				return DroidSettings{}, fmt.Errorf("%s", msg)
 			}

@@ -15,7 +15,7 @@
     [int]$FontWeight = 300,
 
     [ValidateScript({ $_ -and $_ -notmatch '[;{}<>\r\n]' })]
-    [string]$FontFamily = 'Cascadia Mono, LXGW WenKai Mono',
+    [string]$FontFamily = 'Maple Mono NF CN',
 
     [ValidateRange(1024, 65535)]
     [int]$Port = 9336,

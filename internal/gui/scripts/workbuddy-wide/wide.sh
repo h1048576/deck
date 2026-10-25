@@ -5,7 +5,7 @@ WIDTH='70vw'
 MAX_WIDTH='90rem'
 
 # 界面字体、字号和字重（100–1000）
-FONT_FAMILY='Cascadia Mono, LXGW WenKai Mono'
+FONT_FAMILY='Maple Mono NF CN'
 FONT_SIZE=17
 FONT_WEIGHT=200
 

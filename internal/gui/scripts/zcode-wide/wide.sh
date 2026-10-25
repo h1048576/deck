@@ -3,8 +3,8 @@
 # 对话区宽度，例如 72rem / 80rem / 90rem / 1200px / 1400px
 WIDTH='70vw'
 
-# 中英文字体按顺序回退：Cascadia Mono 显示英文，LXGW WenKai Mono 补充中文字符。
-FONT_FAMILY='Cascadia Mono, LXGW WenKai Mono'
+# 统一等宽字体，英文和中文字符由同一字体覆盖。
+FONT_FAMILY='Maple Mono NF CN'
 # 界面字重（100–1000）
 FONT_WEIGHT=300
 

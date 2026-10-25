@@ -7,7 +7,7 @@
     [string]$Width = '70vw',
 
     [ValidateNotNullOrEmpty()]
-    [string]$FontFamily = 'Cascadia Mono, LXGW WenKai Mono',
+    [string]$FontFamily = 'Maple Mono NF CN',
 
     [ValidateRange(100, 1000)]
     [int]$FontWeight = 300,

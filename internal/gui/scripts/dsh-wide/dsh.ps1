@@ -8,7 +8,7 @@
     [ValidatePattern('^(?:auto|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]+)?(?:px|rem|em|vh|%))$')]
     [string]$ChatHeight = '80px',
     [ValidateScript({ $_ -and $_ -notmatch '[;{}<>\r\n]' })]
-    [string]$FontFamily = 'Cascadia Mono, LXGW WenKai Mono',
+    [string]$FontFamily = 'Maple Mono NF CN',
     [ValidateRange(8, 72)]
     [int]$FontSize = 17,
     [ValidateRange(100, 1000)]

@@ -8,11 +8,14 @@
     [ValidateRange(8, 72)]
     [int]$FontSize = 17,
 
+    [ValidateScript({ $_ -gt 0 -and $_ % 5 -eq 0 })]
+    [int]$LineHeightPercent = 100,
+
     [ValidateRange(100, 1000)]
     [int]$FontWeight = 300,
 
     [ValidateScript({ $_ -and $_ -notmatch '[;{}<>\r\n]' })]
-    [string]$FontFamily = 'Cascadia Mono, LXGW WenKai Mono',
+    [string]$FontFamily = 'Maple Mono NF CN',
 
     [ValidateRange(1024, 65535)]
     [int]$Port = 9335,
@@ -273,6 +276,7 @@ body * {
     # JavaScript string is JSON-encoded to avoid quote/escape problems.
     $cssJson = $css | ConvertTo-Json -Compress
     $widthGuardSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'content-width.js') -Raw
+    $lineHeightSource = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '../line-height.js') -Raw).Replace('__DECK_LINE_HEIGHT_PERCENT__', [string]$LineHeightPercent)
     $remainingUsageSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'remaining-usage.js') -Raw
     $currentProjectSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'current-project.js') -Raw
     $script = @"
@@ -360,6 +364,7 @@ body * {
     $widthGuardSource
     $remainingUsageSource
     $currentProjectSource
+    $lineHeightSource
     if ($PreventSummary) installSummaryAutoOpenGuard();
     return true;
   };

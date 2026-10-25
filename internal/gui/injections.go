@@ -16,6 +16,9 @@ var injectionTemplatesJSON []byte
 //go:embed scripts/codex-wide/content-width.js
 var codexContentWidthSource string
 
+//go:embed scripts/line-height.js
+var applicationLineHeightSource string
+
 //go:embed scripts/codex-wide/remaining-usage.js
 var codexRemainingUsageSource string
 
@@ -74,6 +77,10 @@ func isAutoSize(value string) bool { return value == "auto" || value == "fit-con
 
 // applicationInjection builds the injected JS for non-droid applications.
 func applicationInjection(id string, s settings.DroidSettings) string {
+	return withApplicationStyle(id, s, applicationLayoutInjection(id, s))
+}
+
+func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	if id == "dsh" {
 		return dshInjection(s)
 	}

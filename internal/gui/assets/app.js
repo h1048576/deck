@@ -33,7 +33,8 @@ const APPLICATIONS = {
 const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338, claude: 9339 }
 const DEFAULT_DROID = {
   width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
-  fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, fontWeight: 300, terminalFollow: true,
+  fontFamily: 'Maple Mono NF CN', fontSize: 17, fontWeight: 300, terminalFollow: true,
+  lineHeightPercent: 100, backgroundColor: '#111111', foregroundColor: '#F0F0F0',
   hideLocalMerge: false, hideGitDiff: false, hideChanges: false, preventSummary: false, showWorkbuddyCredits: false, port: 9332, executablePath: '',
 }
 const DEFAULT_APPLICATIONS = {
@@ -47,9 +48,9 @@ const DEFAULT_APPLICATIONS = {
   qoder: { ...DEFAULT_DROID, port: PORTS.qoder },
   paseo: { ...DEFAULT_DROID, hideLocalMerge: true, hideGitDiff: true, port: PORTS.paseo },
 }
-const DEFAULT_APPEARANCE = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 17, mode: 'compact' }
-const DEFAULT_FONT_OPTIONS = ['default', 'Cascadia Mono, LXGW WenKai Mono', 'Maple Mono Normal NF CN']
-const DEFAULT_TERMINAL = { fontFamily: 'Cascadia Mono, LXGW WenKai Mono', fontSize: 12, fontWeight: 100, windowSize: '120x30', windowSizeOptions: ['120x30', '168x48'], settingsPaths: [] }
+const DEFAULT_APPEARANCE = { fontFamily: 'Maple Mono NF CN', fontSize: 17, mode: 'compact' }
+const DEFAULT_FONT_OPTIONS = ['default', 'Maple Mono NF CN', 'Cascadia Mono, LXGW WenKai Mono', 'Maple Mono Normal NF CN']
+const DEFAULT_TERMINAL = { fontFamily: 'Maple Mono NF CN', fontSize: 12, fontWeight: 100, windowSize: '120x30', windowSizeOptions: ['120x30', '168x48'], settingsPaths: [] }
 const DEFAULT_HARNESS_SETTINGS = { skillsCollapsed: true, modelsCollapsed: true, mcpsCollapsed: true }
 const SYSTEM_FONT = '"Segoe UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif'
 const BATCH_ACTION_LABELS = { start: '启动', restart: '重启', exit: '退出' }
@@ -111,7 +112,10 @@ function settingsErrors(value) {
   if (!maxPattern.test(value.maxWidth)) errors.maxWidth = '请输入有效最大宽度，例如 90rem 或 1200px'
   if (!heightPattern.test(value.chatHeight)) errors.chatHeight = '请输入有效高度，例如 80px'
   if (!Number.isInteger(value.fontSize) || value.fontSize < 8 || value.fontSize > 72) errors.fontSize = '字号须为 8–72 的整数'
+  if (value.lineHeightPercent !== undefined && (!Number.isSafeInteger(value.lineHeightPercent) || value.lineHeightPercent <= 0 || value.lineHeightPercent % 5 !== 0)) errors.lineHeightPercent = '行高须为正整数，且为 5% 的倍数'
   if (!Number.isInteger(value.fontWeight) || value.fontWeight < 100 || value.fontWeight > 1000) errors.fontWeight = '字重须为 100–1000 的整数'
+  if (!/^#[0-9a-f]{6}$/i.test(value.backgroundColor ?? '#111111')) errors.backgroundColor = '背景须为六位十六进制颜色，例如 #111111'
+  if (!/^#[0-9a-f]{6}$/i.test(value.foregroundColor ?? '#F0F0F0')) errors.foregroundColor = '前景须为六位十六进制颜色，例如 #F0F0F0'
   if (!value.fontFamily.trim() || value.fontFamily.length > 300 || /[;{}<>\r\n]/.test(value.fontFamily)) errors.fontFamily = '请填写字体名称，不能包含 CSS 控制字符'
   if (!Number.isInteger(value.port) || value.port < 1024 || value.port > 65535) errors.port = '端口须为 1024–65535 的整数'
   if (typeof value.executablePath !== 'string' || /[\r\n\0]/.test(value.executablePath)) errors.executablePath = '应用路径无效'
@@ -604,10 +608,10 @@ function renderApplicationPage(id) {
     page.appendChild(layoutSection)
   }
 
-  // ---- 字体 ----
+  // ---- 样式 ----
   const fontSection = el('section', 'settings-group')
-  fontSection.setAttribute('aria-label', `${pageTitle()} 字体`)
-  fontSection.appendChild(el('h2', '', '字体'))
+  fontSection.setAttribute('aria-label', `${pageTitle()} 样式`)
+  fontSection.appendChild(el('h2', '', '样式'))
   const fontList = el('div', 'settings-list')
   if (capability.fontFamily) {
     const font = FontControl({ id: 'fontFamily', label: `${pageTitle()} 字体`, value: settings.fontFamily, fonts: state.fontOptions, disabled, error: errors.fontFamily, onChange: value => update('fontFamily', value) })
@@ -616,6 +620,10 @@ function renderApplicationPage(id) {
   if (capability.fontSize) {
     const fontSize = PixelControl({ id: 'fontSize', min: 8, max: 72, value: settings.fontSize, ...inputProps('fontSize'), onInput: value => update('fontSize', Number(value)) })
     fontList.appendChild(SettingRow('字号', 'fontSize', errors.fontSize, fontSize.node))
+  }
+  if (!capability.fontScript) {
+    const lineHeight = PixelControl({ id: 'lineHeightPercent', min: 5, step: 5, unit: '%', value: settings.lineHeightPercent ?? 100, ...inputProps('lineHeightPercent'), onInput: value => update('lineHeightPercent', Number(value)) })
+    fontList.appendChild(SettingRow('行高', 'lineHeightPercent', errors.lineHeightPercent, lineHeight.node))
   }
   if (!capability.fontScript) {
     const weight = el('input', 'field-input number-input')
@@ -630,6 +638,30 @@ function renderApplicationPage(id) {
     if (errors.fontWeight) weight.setAttribute('aria-describedby', 'fontWeight-error')
     weight.addEventListener('input', () => update('fontWeight', Number(weight.value)))
     fontList.appendChild(SettingRow('字重', 'fontWeight', errors.fontWeight, weight))
+    for (const [key, label, fallback] of [['backgroundColor', '背景', '#111111'], ['foregroundColor', '前景', '#F0F0F0']]) {
+      const control = el('div', 'style-color-control')
+      const picker = el('input', 'style-color-picker')
+      picker.type = 'color'
+      picker.value = /^#[0-9a-f]{6}$/i.test(settings[key]) ? settings[key] : fallback
+      picker.disabled = disabled
+      picker.setAttribute('aria-label', `${label}颜色选择器`)
+      const input = el('input', 'field-input')
+      input.id = key
+      input.value = settings[key] ?? fallback
+      input.maxLength = 7
+      input.spellcheck = false
+      input.disabled = disabled
+      const change = value => {
+        const valid = /^#[0-9a-f]{6}$/i.test(value)
+        input.setAttribute('aria-invalid', String(!valid))
+        if (valid) picker.value = value
+        update(key, value)
+      }
+      input.addEventListener('input', () => change(input.value))
+      picker.addEventListener('input', () => { input.value = picker.value.toUpperCase(); change(input.value) })
+      control.append(picker, input)
+      fontList.appendChild(SettingRow(label, key, errors[key], control))
+    }
   }
   if (capability.fontScript) {
     const scriptRow = el('div', 'setting-row')
