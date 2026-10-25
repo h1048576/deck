@@ -161,7 +161,7 @@ Codex App 也支持同样的规则，在 `applications.codex.hiddenModelPatterns
 
 Droid（Factory）也支持相同规则，在 `applications.droid.hiddenModelPatterns` 中配置。匹配模型名称或 ID，忽略大小写；例如 `["Auto Model$", "^GPT-", "^kimi-"]`。仅隐藏模型选项，不修改当前已选模型，也不隐藏 Legacy 展开入口。Droid 的隐藏规则同样会在保存设置时从文件重新读取，避免被界面旧快照覆盖。保存后通过新版 deck 启动或重启 Droid 生效。
 
-Codex App 的项目/目录名后显示快捷模型选择器，点击后向上弹出菜单，同时切换模型和推理等级。菜单末尾的中文推理等级按列对齐。按 `Ctrl+M` 可按菜单顺序循环切换配置中的模型和推理等级，末项之后回到首项；不可用的选项会跳过。配置位于 `applications.codex.modelSelector`，与 `hiddenModelPatterns` 同级；键为菜单显示名称，值为模型 ID 和推理等级，默认配置如下：
+Codex App 的项目/目录名后显示快捷模型选择器，点击后向上弹出菜单，同时切换模型和推理等级。菜单末尾的中文推理等级按列对齐。弹出菜单和 `Ctrl+M` 循环切换均按配置文件中键的书写顺序排列。按 `Ctrl+M` 可按菜单顺序循环切换配置中的模型和推理等级，末项之后回到首项；不可用的选项会跳过。配置位于 `applications.codex.modelSelector`，与 `hiddenModelPatterns` 同级；键为菜单显示名称，值为模型 ID 和推理等级，默认配置如下：
 
 ```json
 "modelSelector": {

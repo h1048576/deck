@@ -67,6 +67,8 @@ type DroidSettings struct {
 	HiddenModelPatterns []string `json:"hiddenModelPatterns"`
 	// ModelSelector 是 Codex 快捷模型菜单，键为显示名称，值为模型和推理等级。
 	ModelSelector map[string]ModelSelection `json:"modelSelector"`
+	// ModelSelectorOrder 从配置原文读取，不作为额外配置字段写入。
+	ModelSelectorOrder []string `json:"-"`
 }
 
 type ModelSelection struct {

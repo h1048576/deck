@@ -55,6 +55,7 @@ func clonePreferences(prefs Preferences) Preferences {
 	for id, app := range prefs.Applications {
 		app.HiddenModelPatterns = slices.Clone(app.HiddenModelPatterns)
 		app.ModelSelector = maps.Clone(app.ModelSelector)
+		app.ModelSelectorOrder = slices.Clone(app.ModelSelectorOrder)
 		prefs.Applications[id] = app
 	}
 	prefs.MenuOrder = slices.Clone(prefs.MenuOrder)
@@ -105,6 +106,7 @@ func (s *Store) Load() {
 		s.warning = "本机设置文件无法读取，已暂用默认值。原文件会保留。"
 		return
 	}
+	restoreModelSelectorOrder(&prefs, text)
 	s.prefs = prefs
 	// 新增字段和迁移结果立即写回，手动编辑 setting.json 时能看到完整配置；写入失败时下次保存会重试。
 	if normalized, err := marshalPreferencesWithSource(prefs, text); err == nil && !bytes.Equal(normalized, text) {
@@ -271,7 +273,40 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 		}
 		prefs.Applications[id] = app
 	}
+	restoreModelSelectorOrder(prefs, text)
 	return text, nil
+}
+
+// restoreModelSelectorOrder 在 map 解码之外保留 JSON 对象的书写顺序。
+func restoreModelSelectorOrder(prefs *Preferences, source []byte) {
+	var root struct {
+		Applications map[string]struct {
+			ModelSelector json.RawMessage `json:"modelSelector"`
+		} `json:"applications"`
+	}
+	if json.Unmarshal(source, &root) != nil {
+		return
+	}
+	app := prefs.Applications[Codex]
+	app.ModelSelectorOrder = nil
+	decoder := json.NewDecoder(bytes.NewReader(root.Applications[Codex].ModelSelector))
+	if token, err := decoder.Token(); err == nil && token == json.Delim('{') {
+		for decoder.More() {
+			token, err := decoder.Token()
+			if err != nil {
+				break
+			}
+			var value json.RawMessage
+			if decoder.Decode(&value) != nil {
+				break
+			}
+			name, ok := token.(string)
+			if _, valid := app.ModelSelector[name]; ok && valid && !slices.Contains(app.ModelSelectorOrder, name) {
+				app.ModelSelectorOrder = append(app.ModelSelectorOrder, name)
+			}
+		}
+	}
+	prefs.Applications[Codex] = app
 }
 
 // Update queues a change; the returned channel receives the flush outcome.

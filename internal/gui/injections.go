@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -169,7 +170,26 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		widthGuardSource += "\n" + codexRemainingUsageSource + "\n" + codexCurrentProjectSource
 		patterns, _ := json.Marshal(s.HiddenModelPatterns)
 		widthGuardSource += "\n" + strings.ReplaceAll(codexModelFilterSource, "__DECK_HIDDEN_MODEL_PATTERNS__", string(patterns))
-		selector, _ := json.Marshal(s.ModelSelector)
+		// 使用数组传递顺序，避免 Go map 排序以及 JS 对数字键的重新排序。
+		ordered := make([][2]any, 0, len(s.ModelSelector))
+		seen := make(map[string]bool, len(s.ModelSelector))
+		for _, name := range s.ModelSelectorOrder {
+			if value, ok := s.ModelSelector[name]; ok && !seen[name] {
+				ordered = append(ordered, [2]any{name, value})
+				seen[name] = true
+			}
+		}
+		var remaining []string
+		for name := range s.ModelSelector {
+			if !seen[name] {
+				remaining = append(remaining, name)
+			}
+		}
+		slices.Sort(remaining)
+		for _, name := range remaining {
+			ordered = append(ordered, [2]any{name, s.ModelSelector[name]})
+		}
+		selector, _ := json.Marshal(ordered)
 		widthGuardSource += "\n" + strings.ReplaceAll(codexModelSelectorSource, "__DECK_MODEL_SELECTOR__", string(selector))
 	}
 	source = strings.ReplaceAll(source, "$widthGuardSource", widthGuardSource)

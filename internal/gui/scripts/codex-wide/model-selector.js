@@ -1,7 +1,7 @@
 (() => {
   const key = '__deckCodexModelSelector';
   const configured = __DECK_MODEL_SELECTOR__;
-  if (window[key]?.version === 2) {
+  if (window[key]?.version === 3) {
     window[key].configure(configured);
     return;
   }
@@ -322,10 +322,10 @@
       clearTimeout(control.confirmTimer);
       control.pendingSelection = null;
     }
-    entries = Object.entries(values || {}).filter(([name, value]) => name.trim() && typeof value?.model === 'string' && typeof value?.reasoningEffort === 'string');
+    entries = (Array.isArray(values) ? values : Object.entries(values || {})).filter(([name, value]) => name.trim() && typeof value?.model === 'string' && typeof value?.reasoningEffort === 'string');
     scan();
   };
-  window[key] = { version: 2, configure, scan: schedule, dispose() {
+  window[key] = { version: 3, configure, scan: schedule, dispose() {
     disposed = true;
     observer.disconnect();
     window.removeEventListener('keydown', handleMenuKey, true);
