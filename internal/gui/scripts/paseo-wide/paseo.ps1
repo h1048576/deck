@@ -5,6 +5,9 @@
     [ValidatePattern('^(?:auto|fit-content|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]+)?(?:px|rem|em|vw|vh|%))$')]
     [string]$Width = '70vw',
 
+    [ValidatePattern('^(?:none|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]+)?(?:px|rem|em|vw|vh|%))$')]
+    [string]$MaxWidth = '90rem',
+
     [ValidateRange(100, 1000)]
     [int]$FontWeight = 300,
 
@@ -35,7 +38,7 @@ if ($Background) {
         $powerShellExecutable = Join-Path $PSHOME 'powershell.exe'
         $quotedScriptPath = '"' + $PSCommandPath + '"'
         $quotedLogPath = '"' + $outputLog + '"'
-        $arguments = "-NoProfile -ExecutionPolicy Bypass -File $quotedScriptPath -Width $Width -FontWeight $FontWeight -Port $Port -HideLocalMerge $HideLocalMerge -HideGitDiff $HideGitDiff -LogPath $quotedLogPath"
+        $arguments = "-NoProfile -ExecutionPolicy Bypass -File $quotedScriptPath -Width $Width -MaxWidth $MaxWidth -FontWeight $FontWeight -Port $Port -HideLocalMerge $HideLocalMerge -HideGitDiff $HideGitDiff -LogPath $quotedLogPath"
         if ($Normal) { $arguments += ' -Normal' }
 
         Start-Process `
@@ -280,11 +283,21 @@ function Invoke-CdpCommand([string]$WebSocketUrl, [string]$Method, [hashtable]$P
 function Inject-WideUi(
     [object[]]$Targets,
     [string]$ContentWidth,
+    [string]$ContentMaxWidth,
     [int]$ContentFontWeight,
     [int]$ShouldHideLocalMerge,
     [int]$ShouldHideGitDiff
 ) {
-    $safeWidth = $ContentWidth.Replace("'", "")
+    $safeWidth = if ($ContentWidth -in @('auto', 'fit-content')) {
+        $ContentWidth
+    } else {
+        "min(100%, $ContentWidth)"
+    }
+    $safeMaxWidth = if ($ContentMaxWidth -eq 'none') {
+        '100%'
+    } else {
+        "min(100%, $ContentMaxWidth)"
+    }
     $hiddenUiRules = @()
     if ($ShouldHideLocalMerge) {
         $hiddenUiRules += @"
@@ -311,7 +324,8 @@ body * {
 }
 
 [data-paseo-wide-content] {
-    max-width: $safeWidth !important;
+    width: $safeWidth !important;
+    max-width: $safeMaxWidth !important;
 }
 $hiddenUiCss
 "@
@@ -323,12 +337,13 @@ $hiddenUiCss
   const installContentWidthGuard = () => {
     const guardKey = '__paseoWideContentGuard';
     const marker = 'data-paseo-wide-content';
-    const defaultMaxWidth = '820px';
-    if (window[guardKey]) {
+    const defaultMaxWidths = new Set(['820px', '1200px']);
+    if (window[guardKey]?.version === 2) {
       window[guardKey].scan();
       return;
     }
 
+    window[guardKey]?.observer?.disconnect();
     const queuedRoots = new Set();
     let scanScheduled = false;
 
@@ -337,7 +352,7 @@ $hiddenUiCss
       const candidates = [root, ...root.querySelectorAll('*')];
       candidates.forEach((element) => {
         if (element.hasAttribute(marker)) return;
-        if (getComputedStyle(element).maxWidth === defaultMaxWidth) {
+        if (defaultMaxWidths.has(getComputedStyle(element).maxWidth)) {
           element.setAttribute(marker, '');
         }
       });
@@ -373,7 +388,7 @@ $hiddenUiCss
       subtree: true,
     });
 
-    window[guardKey] = { observer, scan: scheduleScan };
+    window[guardKey] = { version: 2, observer, scan: scheduleScan };
     scheduleScan();
     [250, 1000, 3000].forEach((delay) => {
       window.setTimeout(() => scheduleScan(document.documentElement), delay);
@@ -432,6 +447,7 @@ try {
 
     $Port = Select-Port $Port
     Write-Step "对话区目标宽度：$Width"
+    Write-Step "对话区最大宽度：$MaxWidth"
     Write-Step "字重：$FontWeight"
     Write-Step "本地 merge：$(if ($HideLocalMerge) { '隐藏' } else { '显示' })"
     Write-Step "git diff 统计：$(if ($HideGitDiff) { '隐藏' } else { '显示' })"
@@ -452,8 +468,8 @@ try {
         throw "Paseo 未在 http://127.0.0.1:$Port 提供可用的 CDP page target。请关闭由其他安装目录或开发环境启动的 Paseo 后重试。"
     }
 
-    Inject-WideUi $targets $Width $FontWeight $HideLocalMerge $HideGitDiff
-    Write-Step "注入成功：Paseo 内容区宽度已设为 $Width，字重已设为 $FontWeight。"
+    Inject-WideUi $targets $Width $MaxWidth $FontWeight $HideLocalMerge $HideGitDiff
+    Write-Step "注入成功：Paseo 内容区宽度已设为 $Width，最大宽度已设为 $MaxWidth，字重已设为 $FontWeight。"
     Write-Step '以后用 wide.sh 启动即可；要恢复默认宽度和字重，运行 normal.sh。'
     Start-Sleep -Seconds 1
     Stop-RunTranscript

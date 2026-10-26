@@ -325,7 +325,7 @@ var Applications = map[FeatureId]Capabilities{
 	Manus:     {Name: "Manus", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true},
 	Dsh:       {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true, Credits: true},
 	Qoder:     {Name: "Qoder", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, TerminalUI: true},
-	Paseo:     {Name: "Paseo", Sidebar: true, Merge: true, Diff: true},
+	Paseo:     {Name: "Paseo", Sidebar: true, MaxWidth: true, Merge: true, Diff: true},
 	Claude:    {Name: "Claude", FontFamily: true, FontScript: true},
 }
 

@@ -27,7 +27,7 @@ const APPLICATIONS = {
   claude: { name: 'Claude', sidebarWidth: false, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: false, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: true, credits: false },
   dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: true },
   qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
-  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
+  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
 }
 const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338, claude: 9339 }
 const DEFAULT_DROID = {

@@ -120,11 +120,11 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	if id == "codex" && isAutoSize(s.Width) {
 		safeWidth = "100%"
 	}
-	if (id == "qoder" || id == "workbuddy") && !isAutoSize(s.Width) {
+	if (id == "qoder" || id == "workbuddy" || id == "paseo") && !isAutoSize(s.Width) {
 		safeWidth = fmt.Sprintf("min(100%%, %s)", s.Width)
 	}
 	safeMaxWidth := s.MaxWidth
-	if id == "qoder" || id == "workbuddy" {
+	if id == "qoder" || id == "workbuddy" || id == "paseo" {
 		if s.MaxWidth == "none" {
 			safeMaxWidth = "100%"
 		} else {
