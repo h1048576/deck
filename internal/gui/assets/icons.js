@@ -1,5 +1,6 @@
 // lucide icons (ISC license) extracted from lucide-react
 const ICONS = {
+  "chartColumn": `<path d="M3 3v18h18"></path><path d="M8 16v-5M13 16V7M18 16V4"></path>`,
   "maximize2": `<path d="M15 3h6v6"></path><path d="m21 3-7 7"></path><path d="m3 21 7-7"></path><path d="M9 21H3v-6"></path>`,
   "panelLeft": `<rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path>`,
   "play": `<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"></path>`,

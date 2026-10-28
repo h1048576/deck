@@ -200,6 +200,16 @@ func (h *host) buildRouter() *http.ServeMux {
 		writeJSON(rw, http.StatusOK, enabled)
 	})
 
+	mux.HandleFunc("GET /api/usage/codex", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, loadCodexUsage(h.store.Prefs().Applications[settings.Codex].Port))
+	})
+	mux.HandleFunc("GET /api/usage/workbuddy", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, loadWorkbuddyCredits())
+	})
+	mux.HandleFunc("GET /api/usage/droid", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, loadDroidUsage())
+	})
+
 	mux.HandleFunc("GET /api/harness/inventory", func(rw http.ResponseWriter, r *http.Request) {
 		includeSkills := r.URL.Query().Get("skills") != "0"
 		writeJSON(rw, http.StatusOK, h.harness.Inventory(includeSkills))

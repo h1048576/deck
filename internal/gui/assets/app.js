@@ -2,6 +2,7 @@
 import { el, html, icon, SettingRow, Switch, PixelControl, DimensionControl, SelectControl, FontControl } from './controls.js'
 import { api, messageOf } from './api.js'
 import { createHarnessPage } from './harnesspage.js'
+import { createUsagePage } from './usagepage.js'
 import { ModelDialog } from './dialogs.js'
 
 // ---- 常量 ----
@@ -189,6 +190,7 @@ const shell = {
 }
 
 let harnessPage = null
+let usagePage = null
 
 function renderBrandBar() {
   const bar = shell.brandBar
@@ -222,6 +224,7 @@ function renderMenus() {
   shell.menuGlobal.textContent = ''
   shell.menuGlobal.appendChild(globalMenuItem('start', '开始', 'play'))
   shell.menuGlobal.appendChild(globalMenuItem('harness', 'Harness', 'slidersHorizontal'))
+  shell.menuGlobal.appendChild(globalMenuItem('usage', '用量', 'chartColumn'))
 
   shell.menuApps.textContent = ''
   shell.menuApps.classList.toggle('menu-dragging', !!menuDrag.dragging)
@@ -315,6 +318,7 @@ function pageTitle() {
   if (state.active === 'settings') return '设置'
   if (state.active === 'start') return '开始'
   if (state.active === 'harness') return 'Harness'
+  if (state.active === 'usage') return '用量'
   return featureOf(state.active)?.name ?? ''
 }
 
@@ -322,6 +326,7 @@ function pageIconName() {
   if (state.active === 'settings') return 'settings2'
   if (state.active === 'start') return 'play'
   if (state.active === 'harness') return 'slidersHorizontal'
+  if (state.active === 'usage') return 'chartColumn'
   return null
 }
 
@@ -393,7 +398,10 @@ function renderPage() {
   else titleGroup.appendChild(appIconNode(state.active, 26))
   titleGroup.appendChild(el('h1', '', pageTitle()))
   header.appendChild(titleGroup)
-  if (!['settings', 'start', 'harness'].includes(state.active)) {
+  if (state.active === 'usage') {
+    if (!usagePage) usagePage = createUsagePage()
+    header.appendChild(usagePage.actions)
+  } else if (!['settings', 'start', 'harness'].includes(state.active)) {
     const actions = el('div', 'page-header-actions')
     const id = state.active
     const errors = settingsErrors(state.applications[id])
@@ -430,6 +438,9 @@ function renderPage() {
     container.appendChild(harnessPage.node)
     // 订阅回调在节点挂载前触发过 render（isConnected=false 被跳过），挂载后补绘一次；数据刷新只在进入页面和回到窗口时进行。
     harnessPage.render()
+  } else if (state.active === 'usage') {
+    container.appendChild(usagePage.node)
+    usagePage.refreshStale()
   } else if (state.active === 'settings') container.appendChild(renderSettingsPage())
   else container.appendChild(renderApplicationPage(state.active))
 
@@ -1370,7 +1381,7 @@ function setActive(id) {
 // ---- 恢复确认 ----
 function askRestore(action) {
   const disabled = !!state.busy || !state.ready || !!state.bootError
-  const isApp = !['settings', 'start', 'harness'].includes(state.active)
+  const isApp = !['settings', 'start', 'harness', 'usage'].includes(state.active)
   if (disabled || state.restoreConfirmation || (!isApp && state.active !== 'settings')) return
   if (action === 'normal') {
     const id = state.active
@@ -1534,7 +1545,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
 window.addEventListener('focus', () => {
   refreshWindowState()
   if (state.active === 'harness') harnessPage?.refreshStale()
-  if (!state.busy && !document.hidden && ['settings', 'start', 'harness'].indexOf(state.active) === -1) {
+  if (state.active === 'usage') usagePage?.refreshStale()
+  if (!state.busy && !document.hidden && ['settings', 'start', 'harness', 'usage'].indexOf(state.active) === -1) {
     void requestDetection(state.active, false)
   }
   if (state.active === 'settings' && !document.hidden) void refreshTerminalConfigs()

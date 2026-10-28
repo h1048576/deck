@@ -71,7 +71,7 @@ func loadDroidUsage() droidUsage {
 		}
 		if w.WindowEnd != nil {
 			if end, err := time.Parse(time.RFC3339Nano, *w.WindowEnd); err == nil {
-				result.Reset = end.Local().Format("01-02 15:04")
+				result.Reset = end.Local().Format("2006-01-02 15:04")
 			}
 		}
 		return result
