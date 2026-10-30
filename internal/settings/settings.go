@@ -49,6 +49,7 @@ type DroidSettings struct {
 	FontFamily        string `json:"fontFamily"`
 	FontSize          int    `json:"fontSize"`
 	FontWeight        int    `json:"fontWeight"`
+	BoldFontWeight    int    `json:"boldFontWeight"`
 	LineHeightPercent int    `json:"lineHeightPercent,omitempty"`
 	BackgroundColor   string `json:"backgroundColor"`
 	ForegroundColor   string `json:"foregroundColor"`
@@ -338,7 +339,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 	base := func(id FeatureId) DroidSettings {
 		return DroidSettings{
 			Width: "70vw", SidebarWidth: "15vw", MaxWidth: "90rem", ChatHeight: "80px",
-			FontFamily: "Maple Mono NF CN", FontSize: 17, FontWeight: 300, TerminalFollow: true,
+			FontFamily: "Maple Mono NF CN", FontSize: 17, FontWeight: 300, BoldFontWeight: 700, TerminalFollow: true,
 			LineHeightPercent: 100, BackgroundColor: "#111111", ForegroundColor: "#F0F0F0",
 			ShowWorkbuddyCredits:   Applications[id].Credits,
 			HiddenModelPatterns:    []string{},
@@ -470,6 +471,9 @@ func SettingsErrors(v DroidSettings) map[string]string {
 	if v.FontSize < 8 || v.FontSize > 72 {
 		errors["fontSize"] = "字号须为 8–72 的整数"
 	}
+	if v.BoldFontWeight < 100 || v.BoldFontWeight > 1000 {
+		errors["boldFontWeight"] = "粗体字重须为 100–1000 的整数"
+	}
 	if v.FontWeight < 100 || v.FontWeight > 1000 {
 		errors["fontWeight"] = "字重须为 100–1000 的整数"
 	}
@@ -536,6 +540,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 			input[key] = color
 		}
 	}
+	if _, ok := input["boldFontWeight"]; !ok {
+		input["boldFontWeight"] = float64(fallback.BoldFontWeight)
+	}
 	if _, ok := input["lineHeightPercent"]; !ok {
 		input["lineHeightPercent"] = float64(fallback.LineHeightPercent)
 	}
@@ -578,6 +585,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		{"fontFamily", "string", &value.FontFamily, nil, nil, defaultDroid.FontFamily},
 		{"fontSize", "number", nil, &value.FontSize, nil, defaultDroid.FontSize},
 		{"fontWeight", "number", nil, &value.FontWeight, nil, defaultDroid.FontWeight},
+		{"boldFontWeight", "number", nil, &value.BoldFontWeight, nil, fallback.BoldFontWeight},
 		{"lineHeightPercent", "number", nil, &value.LineHeightPercent, nil, fallback.LineHeightPercent},
 		{"backgroundColor", "string", &value.BackgroundColor, nil, nil, fallback.BackgroundColor},
 		{"foregroundColor", "string", &value.ForegroundColor, nil, nil, fallback.ForegroundColor},
@@ -623,7 +631,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	}
 	if errs := SettingsErrors(value); len(errs) > 0 {
 		// Report errors in a stable order matching the renderer's first-error semantics.
-		for _, key := range []string{"width", "sidebarWidth", "maxWidth", "chatHeight", "fontSize", "lineHeightPercent", "fontWeight", "backgroundColor", "foregroundColor", "fontFamily", "port", "executablePath"} {
+		for _, key := range []string{"width", "sidebarWidth", "maxWidth", "chatHeight", "fontSize", "lineHeightPercent", "fontWeight", "boldFontWeight", "backgroundColor", "foregroundColor", "fontFamily", "port", "executablePath"} {
 			if msg, ok := errs[key]; ok {
 				return DroidSettings{}, fmt.Errorf("%s", msg)
 			}

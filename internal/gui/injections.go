@@ -141,16 +141,15 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		homePageMaxWidth = fmt.Sprintf("min(100%%, calc(%s + 48px))", s.MaxWidth)
 	}
 	values := map[string]string{
-		"safeWidth":         safeWidth,
-		"safeMaxWidth":      safeMaxWidth,
-		"homePageWidth":     homePageWidth,
-		"homePageMaxWidth":  homePageMaxWidth,
-		"safeFontFamily":    font,
-		"cssFontFamily":     font,
-		"ContentFontSize":   fmt.Sprintf("%d", s.FontSize),
-		"ContentFontWeight": fmt.Sprintf("%d", s.FontWeight),
-		"hiddenUiCss":       strings.Join(hiddenUiCss, "\n"),
-		"hiddenChangesCss":  hiddenChangesCss,
+		"safeWidth":        safeWidth,
+		"safeMaxWidth":     safeMaxWidth,
+		"homePageWidth":    homePageWidth,
+		"homePageMaxWidth": homePageMaxWidth,
+		"safeFontFamily":   font,
+		"cssFontFamily":    font,
+		"ContentFontSize":  fmt.Sprintf("%d", s.FontSize),
+		"hiddenUiCss":      strings.Join(hiddenUiCss, "\n"),
+		"hiddenChangesCss": hiddenChangesCss,
 	}
 	css := templateVarPattern.ReplaceAllStringFunc(template.CSS, func(match string) string {
 		sub := templateVarPattern.FindStringSubmatch(match)

@@ -33,7 +33,7 @@ const APPLICATIONS = {
 const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338, claude: 9339 }
 const DEFAULT_DROID = {
   width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
-  fontFamily: 'Maple Mono NF CN', fontSize: 17, fontWeight: 300, terminalFollow: true,
+  fontFamily: 'Maple Mono NF CN', fontSize: 17, fontWeight: 300, boldFontWeight: 700, terminalFollow: true,
   lineHeightPercent: 100, backgroundColor: '#111111', foregroundColor: '#F0F0F0',
   hideLocalMerge: false, hideGitDiff: false, hideChanges: false, preventSummary: false, showWorkbuddyCredits: false, port: 9332, executablePath: '',
 }
@@ -113,6 +113,7 @@ function settingsErrors(value) {
   if (!heightPattern.test(value.chatHeight)) errors.chatHeight = '请输入有效高度，例如 80px'
   if (!Number.isInteger(value.fontSize) || value.fontSize < 8 || value.fontSize > 72) errors.fontSize = '字号须为 8–72 的整数'
   if (value.lineHeightPercent !== undefined && (!Number.isSafeInteger(value.lineHeightPercent) || value.lineHeightPercent <= 0 || value.lineHeightPercent % 5 !== 0)) errors.lineHeightPercent = '行高须为正整数，且为 5% 的倍数'
+  if (!Number.isInteger(value.boldFontWeight) || value.boldFontWeight < 100 || value.boldFontWeight > 1000) errors.boldFontWeight = '粗体字重须为 100–1000 的整数'
   if (!Number.isInteger(value.fontWeight) || value.fontWeight < 100 || value.fontWeight > 1000) errors.fontWeight = '字重须为 100–1000 的整数'
   if (!/^#[0-9a-f]{6}$/i.test(value.backgroundColor ?? '#111111')) errors.backgroundColor = '背景须为六位十六进制颜色，例如 #111111'
   if (!/^#[0-9a-f]{6}$/i.test(value.foregroundColor ?? '#F0F0F0')) errors.foregroundColor = '前景须为六位十六进制颜色，例如 #F0F0F0'
@@ -666,18 +667,36 @@ function renderApplicationPage(id) {
     fontList.appendChild(SettingRow('行高', 'lineHeightPercent', errors.lineHeightPercent, lineHeight.node))
   }
   if (!capability.fontScript) {
-    const weight = el('input', 'field-input number-input')
-    weight.id = 'fontWeight'
-    weight.type = 'number'
-    weight.min = '100'
-    weight.max = '1000'
-    weight.step = '100'
-    weight.value = settings.fontWeight
-    weight.disabled = disabled
-    if (errors.fontWeight) weight.setAttribute('aria-invalid', 'true')
-    if (errors.fontWeight) weight.setAttribute('aria-describedby', 'fontWeight-error')
-    weight.addEventListener('input', () => update('fontWeight', Number(weight.value)))
-    fontList.appendChild(SettingRow('字重', 'fontWeight', errors.fontWeight, weight))
+    const weightFields = []
+    for (const [key, label] of [['fontWeight', '普通'], ['boldFontWeight', '粗体']]) {
+      const field = el('div', 'style-color-field')
+      const fieldControl = el('div', 'style-color-field-control')
+      const fieldLabel = el('label', 'style-color-label', label)
+      fieldLabel.htmlFor = key
+      const control = el('div', 'style-color-control')
+      const spacer = el('span', 'font-weight-spacer')
+      const weight = el('input', 'field-input')
+      weight.id = key
+      weight.type = 'number'
+      weight.min = '100'
+      weight.max = '1000'
+      weight.step = '100'
+      weight.value = settings[key]
+      weight.disabled = disabled
+      if (errors[key]) weight.setAttribute('aria-invalid', 'true')
+      if (errors[key]) weight.setAttribute('aria-describedby', `${key}-error`)
+      weight.addEventListener('input', () => update(key, Number(weight.value)))
+      control.append(spacer, weight)
+      fieldControl.append(fieldLabel, control)
+      field.appendChild(fieldControl)
+      if (errors[key]) {
+        const error = el('p', 'field-error', errors[key])
+        error.id = `${key}-error`
+        field.appendChild(error)
+      }
+      weightFields.push(field)
+    }
+    fontList.appendChild(SettingRow('字重', null, null, ...weightFields))
     const colorFields = []
     for (const [key, label, fallback] of [['backgroundColor', '背景', '#111111'], ['foregroundColor', '前景', '#F0F0F0']]) {
       const field = el('div', 'style-color-field')

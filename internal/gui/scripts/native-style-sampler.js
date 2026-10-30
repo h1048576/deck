@@ -1,9 +1,13 @@
 (() => {
   if (window.frameElement?.id === 'deck-native-style-sampler') return;
   const key = '__deckNativeStyles';
-  if (window[key]?.version === 2) return;
+  if (window[key]?.version === 3) return;
+  window.__deckFontWeights?.dispose();
+  window.__deckFontWeights = null;
   window.__deckCodexLineHeight?.dispose();
+  window.__deckCodexLineHeight = null;
   window.__deckApplicationColors?.dispose();
+  window.__deckApplicationColors = null;
   window[key]?.dispose();
   let frame = null;
   let nativeDocument = null;
@@ -132,7 +136,7 @@
     }
     return result;
   };
-  const watch = ({ measure, relevantProperty, cleanup }) => {
+  const watch = ({ measure, relevantProperty, cleanup, deferWhileEditing = true, delay = 300 }) => {
     clients++;
     let stopped = false, timer = null, full = true, initialized = false;
     let firstQueued = 0;
@@ -151,9 +155,9 @@
       if (scope === document.documentElement || scope === document.body) full = true;
       else if (scope instanceof Element && !ownNode(scope)) dirty.add(scope);
       if (!firstQueued) firstQueued = performance.now();
-      if (editing() && initialized) return;
+      if (deferWhileEditing && editing() && initialized) return;
       clearTimeout(timer);
-      timer = setTimeout(refresh, Math.min(300, Math.max(0, 1500 - (performance.now() - firstQueued))));
+      timer = setTimeout(refresh, Math.min(delay, Math.max(0, 1500 - (performance.now() - firstQueued))));
     };
     const observer = new MutationObserver(records => {
       for (const record of records) {
@@ -184,7 +188,7 @@
     function refresh() {
       timer = null;
       if (stopped || !document.body || (!full && !dirty.size)) return;
-      if (editing() && initialized) return;
+      if (deferWhileEditing && editing() && initialized) return;
       const start = performance.now();
       const scopes = full ? [document.documentElement] : [...dirty].filter(element => {
         if (!element.isConnected) return false;
@@ -254,5 +258,5 @@
       if (--clients === 0) { frame?.remove(); frame = null; nativeDocument = null; copies = new WeakMap(); }
     } };
   };
-  window[key] = { version: 2, watch, dispose() { frame?.remove(); } };
+  window[key] = { version: 3, watch, dispose() { frame?.remove(); } };
 })();

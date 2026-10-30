@@ -16,7 +16,7 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
   let current = settings;
   let scheduled = false;
   function apply(entry) {
-    const next = current.enabled ? { fontFamily: current.fontFamily, fontSize: current.fontSize, fontWeight: current.fontWeight } : entry.original;
+    const next = current.enabled ? { fontFamily: current.fontFamily, fontSize: current.fontSize, fontWeight: current.fontWeight, fontWeightBold: current.boldFontWeight } : entry.original;
     let changed = false;
     for (const [name, value] of Object.entries(next)) {
       if (entry.terminal.options[name] !== value) { entry.terminal.options[name] = value; changed = true; }
@@ -46,7 +46,7 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
       // Qoder 未将 FitAddon 保存在 React ref 中，从已加载的终端插件获取。
       if (terminal && !fit) fit = terminal._addonManager?._addons?.find(addon => !addon.isDisposed && typeof addon.instance?.fit === 'function' && typeof addon.instance?.proposeDimensions === 'function')?.instance;
       if (!terminal || !fit) continue;
-      const original = { fontFamily: terminal.options.fontFamily, fontSize: terminal.options.fontSize, fontWeight: terminal.options.fontWeight };
+      const original = { fontFamily: terminal.options.fontFamily, fontSize: terminal.options.fontSize, fontWeight: terminal.options.fontWeight, fontWeightBold: terminal.options.fontWeightBold };
       const entry = { terminal, fit, original };
       entries.set(element, entry);
       resize.observe(element);
@@ -84,21 +84,23 @@ var terminalKeys = map[string]string{
 }
 
 type terminalFollowSettings struct {
-	Key        string `json:"key"`
-	Enabled    bool   `json:"enabled"`
-	FontFamily string `json:"fontFamily"`
-	FontSize   int    `json:"fontSize"`
-	FontWeight int    `json:"fontWeight"`
+	Key            string `json:"key"`
+	Enabled        bool   `json:"enabled"`
+	FontFamily     string `json:"fontFamily"`
+	FontSize       int    `json:"fontSize"`
+	FontWeight     int    `json:"fontWeight"`
+	BoldFontWeight int    `json:"boldFontWeight"`
 }
 
 // terminalInjection syncs xterm options so terminal fonts follow the settings.
 func terminalInjection(id string, s settings.DroidSettings) string {
 	payload, _ := json.Marshal(terminalFollowSettings{
-		Key:        terminalKeys[id],
-		Enabled:    s.TerminalFollow,
-		FontFamily: s.FontFamily,
-		FontSize:   s.FontSize,
-		FontWeight: s.FontWeight,
+		Key:            terminalKeys[id],
+		Enabled:        s.TerminalFollow,
+		FontFamily:     s.FontFamily,
+		FontSize:       s.FontSize,
+		FontWeight:     s.FontWeight,
+		BoldFontWeight: s.BoldFontWeight,
 	})
 	return "(" + installTerminalFollowJS + ")(" + string(payload) + ")"
 }

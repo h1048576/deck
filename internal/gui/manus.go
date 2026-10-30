@@ -20,13 +20,11 @@ func manusInjection(s settings.DroidSettings) string {
 	css := strings.NewReplacer(
 		"FONT_FAMILY", safeFontFamily(s.FontFamily),
 		"FONT_SIZE", strconv.Itoa(s.FontSize),
-		"FONT_WEIGHT", strconv.Itoa(s.FontWeight),
 		"MAX_WIDTH", maxWidth,
 		"CONTENT_WIDTH", width,
 	).Replace(`:root, body, body * {
   font-family: FONT_FAMILY !important;
   font-size: FONT_SIZEpx !important;
-  font-weight: FONT_WEIGHT !important;
 }
 .mx-auto[class~="sm:max-w-[800px]"] {
   box-sizing: border-box !important;

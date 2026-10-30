@@ -56,7 +56,6 @@ func dshInjection(s settings.DroidSettings) string {
     :root, body, body *:not(.xterm, .xterm *) {
       font-family: ` + font + ` !important;
       font-size: ` + itoa(s.FontSize) + `px !important;
-      font-weight: ` + itoa(s.FontWeight) + ` !important;
     }
     [data-conversation-content] {
       --dsh-chat-content-width: ` + contentWidth + ` !important;

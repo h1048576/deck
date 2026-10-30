@@ -403,3 +403,5 @@ input[type='number']:focus:not(:disabled)::-webkit-inner-spin-button, input[type
   .setting-row:has(.style-color-field) .setting-label { flex: 0 0 auto; }
   .setting-row:has(.style-color-field) .setting-value { flex-wrap: wrap; gap: 12px 24px; }
 }
+
+.font-weight-spacer { flex: 0 0 32px; }
