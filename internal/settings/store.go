@@ -260,6 +260,11 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 		return nil, err
 	}
 	apps, _ := data["applications"].(map[string]any)
+	if config, ok := apps[Zcode].(map[string]any); ok {
+		app := prefs.Applications[Zcode]
+		app.HideBigModel, _ = config["hideBigModel"].(bool)
+		prefs.Applications[Zcode] = app
+	}
 	for _, id := range []FeatureId{Workbuddy, Codex, Droid} {
 		config, _ := apps[id].(map[string]any)
 		app := prefs.Applications[id]
@@ -446,7 +451,7 @@ func mergeSettingsObjects(current, source json.RawMessage, path []string) (json.
 	for key, raw := range original {
 		value, known := values[key]
 		fileOnly := len(path) == 2 && path[0] == "applications" &&
-			(key == "modelSelector" || key == "hiddenModelPatterns")
+			(key == "modelSelector" || key == "hiddenModelPatterns" || (path[1] == Zcode && key == "hideBigModel"))
 		if !known || fileOnly {
 			values[key] = raw
 			continue

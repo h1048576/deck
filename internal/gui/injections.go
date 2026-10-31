@@ -163,6 +163,14 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		}
 		return value
 	})
+	if id == "zcode" && s.HideBigModel {
+		// 限定在模型设置导航，避免影响登录入口、聊天内容和自定义供应商。
+		css += `
+[data-model-provider-navigation-scroll] [data-testid^="model-provider-nav-item"][aria-label="BigModel"],
+[data-model-provider-split-panel]:has([data-model-provider-navigation-scroll] [data-testid^="model-provider-nav-item"][aria-label="BigModel"][aria-selected="true"]) > [data-model-provider-detail-scroll] {
+  display: none !important;
+}`
+	}
 	source := strings.ReplaceAll(template.Source, "$cssJson", jsString(css))
 	widthGuardSource := codexContentWidthSource
 	if id == "codex" {

@@ -59,7 +59,9 @@ type DroidSettings struct {
 	Port              int    `json:"port"`
 	ExecutablePath    string `json:"executablePath"`
 	HideChanges       bool   `json:"hideChanges"`
-	PreventSummary    bool   `json:"preventSummary"`
+	// HideBigModel 隐藏 ZCode 模型设置中的 BigModel 入口及其详情。
+	HideBigModel   bool `json:"hideBigModel"`
+	PreventSummary bool `json:"preventSummary"`
 	// DefaultReasoningEffort 指定 DSH 切换模型后的推理等级。
 	DefaultReasoningEffort string `json:"defaultReasoningEffort"`
 	// ShowWorkbuddyCredits 在 DSH 底部 context 用量后、WorkBuddy 输入框上下文用量左侧显示 WorkBuddy 积分。
@@ -559,6 +561,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		input["defaultReasoningEffort"] = fallback.DefaultReasoningEffort
 	}
 	var value DroidSettings
+	if id == Zcode {
+		value.HideBigModel, _ = input["hideBigModel"].(bool)
+	}
 	value.HiddenModelPatterns = []string{}
 	if id == Workbuddy || id == Codex || id == Droid {
 		value.HiddenModelPatterns = parseHiddenModelPatterns(input["hiddenModelPatterns"])
