@@ -1,7 +1,7 @@
 (() => {
   const key = '__deckCodexModelSelector';
   const configured = __DECK_MODEL_SELECTOR__;
-  if (window[key]?.version === 3) {
+  if (window[key]?.version === 4) {
     window[key].configure(configured);
     return;
   }
@@ -9,7 +9,8 @@
   window[key]?.dispose?.();
   document.getElementById('deck-codex-model-selector-style')?.remove();
   document.getElementById('deck-codex-model-selector-panel')?.remove();
-  const nativeSelector = '[data-codex-intelligence-trigger][data-composer-navigation-target="reasoning"]';
+  // 新版 Codex 已移除 intelligence-trigger，保留新旧版本共有的导航标记。
+  const nativeSelector = '[data-composer-navigation-target="reasoning"]';
   const controls = new Map();
   let entries = [];
   let active = null;
@@ -325,7 +326,7 @@
     entries = (Array.isArray(values) ? values : Object.entries(values || {})).filter(([name, value]) => name.trim() && typeof value?.model === 'string' && typeof value?.reasoningEffort === 'string');
     scan();
   };
-  window[key] = { version: 3, configure, scan: schedule, dispose() {
+  window[key] = { version: 4, configure, scan: schedule, dispose() {
     disposed = true;
     observer.disconnect();
     window.removeEventListener('keydown', handleMenuKey, true);
