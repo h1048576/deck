@@ -218,6 +218,9 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	switch int(versionValue) {
 	case MenuOrderVersion:
 		prefs.MenuOrder = NormalizeMenuOrder(data["menuOrder"])
+	case 3:
+		saved, _ := data["menuOrder"].([]any)
+		prefs.MenuOrder = NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == T3code }))
 	case 2:
 		// 版本 2 的顺序里没有 Claude，或被补齐到了末尾；去掉后由补齐逻辑放到 Droid 之后。
 		saved, _ := data["menuOrder"].([]any)
@@ -260,10 +263,14 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 		return nil, err
 	}
 	apps, _ := data["applications"].(map[string]any)
-	if config, ok := apps[Zcode].(map[string]any); ok {
-		app := prefs.Applications[Zcode]
+	for _, id := range []FeatureId{Zcode, T3code} {
+		config, ok := apps[id].(map[string]any)
+		if !ok {
+			continue
+		}
+		app := prefs.Applications[id]
 		app.HideBigModel, _ = config["hideBigModel"].(bool)
-		prefs.Applications[Zcode] = app
+		prefs.Applications[id] = app
 	}
 	for _, id := range []FeatureId{Workbuddy, Codex, Droid} {
 		config, _ := apps[id].(map[string]any)
@@ -451,7 +458,7 @@ func mergeSettingsObjects(current, source json.RawMessage, path []string) (json.
 	for key, raw := range original {
 		value, known := values[key]
 		fileOnly := len(path) == 2 && path[0] == "applications" &&
-			(key == "modelSelector" || key == "hiddenModelPatterns" || (path[1] == Zcode && key == "hideBigModel"))
+			(key == "modelSelector" || key == "hiddenModelPatterns" || ((path[1] == Zcode || path[1] == T3code) && key == "hideBigModel"))
 		if !known || fileOnly {
 			values[key] = raw
 			continue

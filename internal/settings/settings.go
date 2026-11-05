@@ -17,6 +17,7 @@ type FeatureId = string
 const (
 	Codex     FeatureId = "codex"
 	Droid     FeatureId = "droid"
+	T3code    FeatureId = "t3code"
 	Zcode     FeatureId = "zcode"
 	Workbuddy FeatureId = "workbuddy"
 	Dsh       FeatureId = "dsh"
@@ -26,9 +27,9 @@ const (
 	Claude    FeatureId = "claude"
 )
 
-var DefaultMenuOrder = []FeatureId{Codex, Droid, Claude, Zcode, Workbuddy, Dsh, Qoder, Paseo, Manus}
+var DefaultMenuOrder = []FeatureId{Codex, Droid, Claude, Zcode, Workbuddy, Dsh, T3code, Qoder, Paseo, Manus}
 
-const MenuOrderVersion = 3
+const MenuOrderVersion = 4
 const ApplicationPortsVersion = 1
 const FontDefaultsVersion = 1
 const InstallCacheMs = 60000
@@ -297,7 +298,7 @@ func ParseFontOptions(input any) []string {
 func DefaultPorts() map[FeatureId]int {
 	return map[FeatureId]int{
 		Codex: 9331, Droid: 9332, Zcode: 9333, Workbuddy: 9334, Dsh: 9335,
-		Qoder: 9336, Paseo: 9337, Manus: 9338, Claude: 9339,
+		Qoder: 9336, Paseo: 9337, Manus: 9338, Claude: 9339, T3code: 9340,
 	}
 }
 
@@ -323,6 +324,7 @@ type Capabilities struct {
 var Applications = map[FeatureId]Capabilities{
 	Codex:     {Name: "Codex", Sidebar: true, FontFamily: true, FontSize: true, Summary: true, TerminalUI: true},
 	Droid:     {Name: "Droid", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
+	T3code:    {Name: "T3Code", Sidebar: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Zcode:     {Name: "ZCode", Sidebar: true, FontFamily: true, FontSize: true, Changes: true, TerminalUI: true},
 	Workbuddy: {Name: "WorkBuddy", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, Credits: true},
 	Manus:     {Name: "Manus", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true},
@@ -358,6 +360,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 			return s
 		}(),
 		Droid:     base(Droid),
+		T3code:    func() DroidSettings { s := base(T3code); s.FontSize = 18; return s }(),
 		Zcode:     func() DroidSettings { s := base(Zcode); s.FontSize = 18; s.HideChanges = true; return s }(),
 		Workbuddy: func() DroidSettings { s := base(Workbuddy); s.FontWeight = 200; return s }(),
 		Manus:     func() DroidSettings { s := base(Manus); s.FontWeight = 200; return s }(),
@@ -561,7 +564,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		input["defaultReasoningEffort"] = fallback.DefaultReasoningEffort
 	}
 	var value DroidSettings
-	if id == Zcode {
+	if id == Zcode || id == T3code {
 		value.HideBigModel, _ = input["hideBigModel"].(bool)
 	}
 	value.HiddenModelPatterns = []string{}
@@ -699,6 +702,9 @@ func NormalizeMenuOrder(input any) []FeatureId {
 			at = zcode
 		}
 		saved = append(saved[:at], append([]FeatureId{Claude}, saved[at:]...)...)
+	}
+	if at := indexOf(saved, Dsh); at >= 0 && !contains(saved, T3code) {
+		saved = slices.Insert(saved, at+1, T3code)
 	}
 	merged := append([]FeatureId(nil), saved...)
 	for _, id := range DefaultMenuOrder {

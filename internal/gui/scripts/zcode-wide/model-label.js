@@ -8,10 +8,10 @@
   let scheduled = false;
   const scan = () => {
     scheduled = false;
-    document.querySelectorAll('[data-testid="chat-model-select-trigger"] span[title]').forEach(label => {
+    document.querySelectorAll('[data-testid="chat-model-select-trigger"] span[title], [data-chat-provider-model-picker-label]').forEach(label => {
       // 仅缩短原生模型标签的文本节点，保留完整 ID、提示和 React 状态。
-      const fullName = label.getAttribute('title');
-      const shortName = fullName.slice(fullName.lastIndexOf('/') + 1);
+      const fullName = label.textContent.trim();
+      const shortName = fullName.slice(fullName.lastIndexOf('/') + 1).replace(/\s*\[1m\]$/i, '');
       if (!shortName || shortName === fullName) return;
       const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {

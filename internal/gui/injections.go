@@ -36,6 +36,9 @@ var codexModelSelectorSource string
 //go:embed scripts/current-project.js
 var currentProjectSource string
 
+//go:embed scripts/t3code-wide/thread-details.js
+var t3ThreadDetailsSource string
+
 //go:embed scripts/zcode-wide/model-label.js
 var zcodeModelLabelSource string
 
@@ -104,6 +107,15 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		return manusInjection(s)
 	}
 	template := injectionTemplates()[id]
+	if id == settings.T3code {
+		template = injectionTemplates()[settings.Zcode]
+		template.Source = strings.ReplaceAll(template.Source, "zcode-wide-ui-override", "t3code-wide-ui-override")
+		template.CSS += `
+:root, [style*="--chat-content-max-width"] { --chat-content-max-width: $safeWidth !important; }
+.chat-content-lane, [data-chat-composer-form] { width: min(100%, $safeWidth) !important; max-width: $safeWidth !important; }
+[style*="--sidebar-width:"] { --sidebar-width: ` + cssLength(s.SidebarWidth) + ` !important; }`
+		s.HideChanges = false
+	}
 	font := safeFontFamily(s.FontFamily)
 	hiddenUiCss := []string{}
 	if s.HideLocalMerge {
@@ -163,7 +175,7 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		}
 		return value
 	})
-	if id == "zcode" && s.HideBigModel {
+	if (id == "zcode" || id == settings.T3code) && s.HideBigModel {
 		// 限定在模型设置导航，避免影响登录入口、聊天内容和自定义供应商。
 		css += `
 [data-model-provider-navigation-scroll] [data-testid^="model-provider-nav-item"][aria-label="BigModel"],
@@ -207,6 +219,9 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	}
 	layoutSource := strings.TrimSpace(source)
 	layoutSource = strings.TrimSuffix(layoutSource, ";")
+	if id == settings.T3code {
+		return layoutSource + " && " + t3ThreadDetailsSource + " && " + terminalInjection(id, s) + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
+	}
 	if id == "zcode" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
 	}

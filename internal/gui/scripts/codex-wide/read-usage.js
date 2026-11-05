@@ -1,7 +1,7 @@
 (async () => {
   const failure = error => ({ items: [], error });
   let query = null;
-  for (const element of document.querySelectorAll('[data-codex-intelligence-trigger]')) {
+  for (const element of document.querySelectorAll('[data-composer-navigation-target="reasoning"]')) {
     const fiberKey = Object.keys(element).find(name => name.startsWith('__reactFiber'));
     for (let fiber = element[fiberKey]; fiber; fiber = fiber.return) {
       const props = fiber.memoizedProps;

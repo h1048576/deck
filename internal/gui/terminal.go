@@ -77,10 +77,11 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
 }`
 
 var terminalKeys = map[string]string{
-	"droid": "__wideDroidTerminalFollow",
-	"zcode": "__wideZcodeTerminalFollow",
-	"dsh":   "__wideDshTerminalFollow",
-	"qoder": "__wideQoderTerminalFollow",
+	"droid":  "__wideDroidTerminalFollow",
+	"t3code": "__wideT3CodeTerminalFollow",
+	"zcode":  "__wideZcodeTerminalFollow",
+	"dsh":    "__wideDshTerminalFollow",
+	"qoder":  "__wideQoderTerminalFollow",
 }
 
 type terminalFollowSettings struct {

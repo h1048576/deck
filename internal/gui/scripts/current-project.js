@@ -49,6 +49,10 @@
   const resolveZcode = input => {
     for (let fiber = fiberOf(input); fiber; fiber = fiber.return) {
       const props = fiber.memoizedProps;
+      if (app === 't3code') {
+        const path = props?.projectCwd || props?.project?.cwd || props?.cwd;
+        if (typeof path === 'string' && path) return { name: basename(path), path };
+      }
       if (typeof props?.workspacePath === 'string' && props.workspacePath) {
         return { name: basename(props.workspacePath), path: props.workspacePath };
       }
@@ -63,10 +67,10 @@
         badges.delete(button);
       }
     }
-    const selector = app === 'dsh' ? '[data-composer-input]' : '[data-testid="v4-composer-input"]';
+    const selector = app === 't3code' ? '[data-testid="composer-editor"]' : app === 'dsh' ? '[data-composer-input]' : '[data-testid="v4-composer-input"]';
     document.querySelectorAll(selector).forEach(input => {
       const container = app === 'dsh' ? input.closest('[data-composer-seat]') : input.closest('form');
-      const button = app === 'dsh'
+      const button = app === 't3code' ? container?.querySelector('[data-chat-provider-model-picker]') : app === 'dsh'
         ? container?.querySelector('button[aria-label^="访问模式"],button[aria-label^="Access mode"]')
         : container?.querySelector('[data-testid="chat-mode-select-trigger"]');
       if (!button) return;

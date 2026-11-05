@@ -12,6 +12,7 @@
   const backgrounds = {
     codex: ['--color-token-bg-primary', '--color-token-main-surface-primary', '--color-token-side-bar-background', '--color-background-surface', '--app-color-background-surface', '--color-surface-primary', '--color-background-execution-output'],
     dsh: ['--dsw-alias-bg-base', '--dsw-specific-sidebar-fill', '--bt-main', '--bt-sidebar'],
+    t3code: ['--background', '--sidebar', '--color-background', '--color-sidebar'],
     zcode: ['--color-background', '--color-background-primary', '--color-sidebar'],
     droid: ['--surface-1', '--sidebar-bg', '--core-v2-bg-page', '--core-v2-bg-surface', '--initial-loader-background'],
   };
@@ -27,6 +28,7 @@
   const foregrounds = {
     codex: ['--color-token-text-primary', '--color-text-primary', '--color-text', '--color-text-primary-ghost', '--color-text-primary-surface', '--user-message-text-color'],
     dsh: ['--dsw-alias-label-primary', '--bt-ink'],
+    t3code: ['--foreground', '--sidebar-foreground', '--color-foreground'],
     zcode: ['--color-foreground', '--color-text-primary'],
     droid: ['--text-default', '--text-heading', '--text-label', '--core-v2-text-primary', '--core-v2-appearance-user-message-text', '--sidebar-active-text', '--sidebar-text-hover'],
   };
