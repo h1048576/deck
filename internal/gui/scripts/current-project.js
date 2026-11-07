@@ -1,10 +1,13 @@
 (() => {
   const app = '__DECK_PROJECT_APP__';
   const key = `__deckCurrentProject_${app}`;
-  if (window[key]) {
+  if (window[key]?.version === 8) {
     window[key].scan();
     return true;
   }
+  window[key]?.observer?.disconnect();
+  clearInterval(window[key]?.timer);
+  document.querySelectorAll(".deck-project-label").forEach(el => el.remove());
   const badges = new Map();
   let scheduled = false;
   const style = document.createElement('style');
@@ -49,15 +52,42 @@
   const resolveZcode = input => {
     for (let fiber = fiberOf(input); fiber; fiber = fiber.return) {
       const props = fiber.memoizedProps;
-      if (app === 't3code') {
-        const path = props?.projectCwd || props?.project?.cwd || props?.cwd;
+      if (app === 't3code' || app === 'paseo') {
+        // T3Code 的编辑器是 ProseMirror 节点，从模型按钮向上查找会话目录。
+        const path = props?.gitCwd || props?.projectCwd || props?.project?.cwd || props?.cwd;
         if (typeof path === 'string' && path) return { name: basename(path), path };
+        continue;
       }
       if (typeof props?.workspacePath === 'string' && props.workspacePath) {
         return { name: basename(props.workspacePath), path: props.workspacePath };
       }
     }
     return {};
+  };
+  const paseoAnchor = button => {
+    // 祖先容器可能同时包含隐藏的输入区，只能锚定到当前显示的控件。
+    const shown = nodes => [...nodes].filter(node => node.getClientRects().length);
+    // “+”按钮常在模型控件所在行的外层，需要先逐级向上找到它，再退回到行内的功能按钮。
+    for (let row = button.parentElement; row && row !== document.body; row = row.parentElement) {
+      const attach = shown(row.querySelectorAll('[data-testid="message-input-attach-button"]'))[0];
+      if (attach) return attach;
+    }
+    let fallback = null;
+    for (let row = button.parentElement; row && row !== document.body; row = row.parentElement) {
+      const features = shown(row.querySelectorAll('[data-testid^="agent-feature-"]'));
+      if (features.length) return features[features.length - 1];
+      fallback ||= shown(row.querySelectorAll('[data-testid="mode-control"]'))[0] || null;
+    }
+    return fallback;
+  };
+  const paseoText = (badge, row) => {
+    const text = [...row.querySelectorAll('[data-testid="agent-thinking-selector"] *, [data-testid="combined-model-selector"] *')]
+      .find(element => [...element.childNodes].some(node => node.nodeType === 3 && node.nodeValue.trim()));
+    if (!text) return;
+    const style = getComputedStyle(text);
+    if (badge.style.color !== style.color) badge.style.color = style.color;
+    if (badge.style.fontSize !== style.fontSize) badge.style.fontSize = style.fontSize;
+    if (badge.style.fontFamily !== style.fontFamily) badge.style.fontFamily = style.fontFamily;
   };
   const scan = () => {
     scheduled = false;
@@ -67,13 +97,22 @@
         badges.delete(button);
       }
     }
-    const selector = app === 't3code' ? '[data-testid="composer-editor"]' : app === 'dsh' ? '[data-composer-input]' : '[data-testid="v4-composer-input"]';
+    const owned = new Set(badges.values());
+    document.querySelectorAll('.deck-project-label').forEach(element => { if (!owned.has(element)) element.remove(); });
+    const selector = app === 't3code' ? 'form [data-chat-provider-model-picker]' : app === 'paseo' ? '[data-testid="combined-model-selector"]'
+      : app === 'dsh' ? '[data-composer-input]' : '[data-testid="v4-composer-input"]';
     document.querySelectorAll(selector).forEach(input => {
       const container = app === 'dsh' ? input.closest('[data-composer-seat]') : input.closest('form');
-      const button = app === 't3code' ? container?.querySelector('[data-chat-provider-model-picker]') : app === 'dsh'
+      const button = app === 't3code' || app === 'paseo' ? input : app === 'dsh'
         ? container?.querySelector('button[aria-label^="访问模式"],button[aria-label^="Access mode"]')
         : container?.querySelector('[data-testid="chat-mode-select-trigger"]');
       if (!button) return;
+      // Paseo 会保留未显示页面的输入区，它向上查找时会命中当前页面的控件行，导致重复标签。
+      if ((app === 'paseo' || app === 't3code') && !button.getClientRects().length) {
+        const stale = badges.get(button);
+        if (stale) { stale.remove(); badges.delete(button); }
+        return;
+      }
       const project = app === 'dsh' ? resolveDsh(input) : resolveZcode(input);
       let badge = badges.get(button);
       if (!badge) {
@@ -82,7 +121,14 @@
         badge.innerHTML = `${icons[app] || icons.zcode}<span></span>`;
         badges.set(button, badge);
       }
-      const anchor = app === 'dsh' ? button.parentElement : button;
+      // Paseo 的控件行没有统一文字颜色，沿用推理等级按钮的文字样式。
+      if (app === 'paseo') {
+        paseoText(badge, button.parentElement);
+        // 控件行按底部对齐，原生按钮高 28px，目录标签需垂直居中才不会偏下。
+        if (badge.style.alignSelf !== 'center') badge.style.alignSelf = 'center';
+      }
+      const anchor = app === 't3code' ? container?.querySelector('button[aria-label="Attach files"]') : app === 'dsh' ? button.parentElement : app === 'paseo' ? paseoAnchor(button) : button;
+      if (!anchor) return;
       if (anchor.nextElementSibling !== badge) anchor.after(badge);
       badge.hidden = !project.name;
       if (!project.name) return;
@@ -103,7 +149,7 @@
   const timer = setInterval(() => {
     if (document.visibilityState === 'visible') schedule();
   }, 2000);
-  window[key] = { scan: schedule, observer, timer };
+  window[key] = { version: 8, scan: schedule, observer, timer };
   scan();
   return true;
 })()

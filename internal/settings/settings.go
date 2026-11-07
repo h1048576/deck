@@ -27,9 +27,9 @@ const (
 	Claude    FeatureId = "claude"
 )
 
-var DefaultMenuOrder = []FeatureId{Codex, Droid, Claude, Zcode, Workbuddy, Dsh, T3code, Qoder, Paseo, Manus}
+var DefaultMenuOrder = []FeatureId{Codex, Droid, Claude, T3code, Paseo, Zcode, Workbuddy, Dsh, Qoder, Manus}
 
-const MenuOrderVersion = 4
+const MenuOrderVersion = 5
 const ApplicationPortsVersion = 1
 const FontDefaultsVersion = 1
 const InstallCacheMs = 60000
@@ -76,6 +76,7 @@ type DroidSettings struct {
 }
 
 type ModelSelection struct {
+	Provider        string `json:"provider,omitempty"`
 	Model           string `json:"model"`
 	ReasoningEffort string `json:"reasoningEffort"`
 }
@@ -522,12 +523,13 @@ func parseModelSelector(input any) map[string]ModelSelection {
 		item, _ := raw.(map[string]any)
 		model, _ := item["model"].(string)
 		effort, _ := item["reasoningEffort"].(string)
+		provider, _ := item["provider"].(string)
 		model = strings.TrimSpace(model)
 		effort = strings.TrimSpace(effort)
-		if strings.TrimSpace(name) == "" || model == "" || !slices.Contains([]string{"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}, effort) {
+		if strings.TrimSpace(name) == "" || model == "" || (effort != "" && !slices.Contains([]string{"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}, effort)) {
 			continue
 		}
-		result[name] = ModelSelection{Model: model, ReasoningEffort: effort}
+		result[name] = ModelSelection{Model: model, ReasoningEffort: effort, Provider: strings.TrimSpace(provider)}
 	}
 	return result
 }
@@ -571,10 +573,10 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if id == Workbuddy || id == Codex || id == Droid {
 		value.HiddenModelPatterns = parseHiddenModelPatterns(input["hiddenModelPatterns"])
 	}
-	if id == Codex {
+	if id == Codex || id == T3code || id == Paseo {
 		if items, present := input["modelSelector"]; present {
 			value.ModelSelector = parseModelSelector(items)
-		} else {
+		} else if id == Codex {
 			value.ModelSelector = defaultCodexModelSelector()
 		}
 	}

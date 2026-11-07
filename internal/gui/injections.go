@@ -33,11 +33,17 @@ var codexModelFilterSource string
 //go:embed scripts/codex-wide/model-selector.js
 var codexModelSelectorSource string
 
+//go:embed scripts/model-shortcut.js
+var modelShortcutSource string
+
 //go:embed scripts/current-project.js
 var currentProjectSource string
 
 //go:embed scripts/t3code-wide/thread-details.js
 var t3ThreadDetailsSource string
+
+//go:embed scripts/t3code-wide/context-meter.js
+var t3ContextMeterSource string
 
 //go:embed scripts/zcode-wide/model-label.js
 var zcodeModelLabelSource string
@@ -223,10 +229,10 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	layoutSource := strings.TrimSpace(source)
 	layoutSource = strings.TrimSuffix(layoutSource, ";")
 	if id == "paseo" {
-		return layoutSource + " && " + sidebar + " && " + paseoHostWorkspacesSource
+		return layoutSource + " && " + sidebar + " && " + paseoHostWorkspacesSource + " && " + currentProjectInjection(id) + " && " + modelSelectorInjection(id, s)
 	}
 	if id == settings.T3code {
-		return layoutSource + " && " + t3ThreadDetailsSource + " && " + terminalInjection(id, s) + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
+		return layoutSource + " && " + modelSelectorInjection(id, s) + " && " + t3ThreadDetailsSource + " && " + t3ContextMeterSource + " && " + terminalInjection(id, s) + " && " + currentProjectInjection(id)
 	}
 	if id == "zcode" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
@@ -240,4 +246,27 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 		return layoutSource + " && " + sidebar + " && " + creditsInjection(id, s.ShowWorkbuddyCredits) + " && " + modelFilter
 	}
 	return layoutSource + " && " + sidebar
+}
+
+func modelSelectorInjection(id string, s settings.DroidSettings) string {
+	ordered := make([][2]any, 0, len(s.ModelSelector))
+	seen := map[string]bool{}
+	for _, name := range s.ModelSelectorOrder {
+		if value, ok := s.ModelSelector[name]; ok && !seen[name] {
+			ordered = append(ordered, [2]any{name, value})
+			seen[name] = true
+		}
+	}
+	var remaining []string
+	for name := range s.ModelSelector {
+		if !seen[name] {
+			remaining = append(remaining, name)
+		}
+	}
+	slices.Sort(remaining)
+	for _, name := range remaining {
+		ordered = append(ordered, [2]any{name, s.ModelSelector[name]})
+	}
+	data, _ := json.Marshal(ordered)
+	return strings.ReplaceAll(strings.ReplaceAll(modelShortcutSource, "__DECK_PROJECT_APP__", id), "__DECK_MODEL_SELECTOR__", string(data))
 }

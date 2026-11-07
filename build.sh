@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# deck 的 Windows 发布打包脚本，行为与 build/build-windows.ps1 一致。
-# 适用于 Git Bash / WSL / Linux 下交叉编译；压缩优先用 zip，
-# 没有 zip 时回退到 Windows 自带的 PowerShell Compress-Archive。
+# deck 的 Windows 发布构建脚本，与 build/build-windows.ps1 的编译步骤一致，
+# 但只产出可执行文件，不打包 zip、不生成校验值。
+# 适用于 Git Bash / WSL / Linux 下交叉编译。
 #
-# 产物：dist/deck.exe、dist/deck-<版本>-windows-amd64.zip 及同名 .sha256
+# 产物：dist/deck.exe
 
 set -euo pipefail
 
@@ -28,61 +28,12 @@ usage() {
 
 产物:
   dist/deck.exe
-  dist/deck-<版本>-windows-amd64.zip
-  dist/deck-<版本>-windows-amd64.sha256
 EOF
 }
 
 fail() {
     echo "错误：$*" >&2
     exit 1
-}
-
-# 把 POSIX 路径转成 Windows 路径，供 PowerShell 使用；非 MSYS 环境原样返回。
-to_win() {
-    if command -v cygpath >/dev/null 2>&1; then
-        cygpath -w "$1"
-    else
-        printf '%s' "$1"
-    fi
-}
-
-sha256_of() {
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | awk '{ print tolower($1) }'
-    else
-        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
-            "(Get-FileHash -LiteralPath '$(to_win "$1")' -Algorithm SHA256).Hash.ToLowerInvariant()" \
-            | tr -d '\r\n'
-    fi
-}
-
-# make_zip <输出 zip> <文件...>，文件路径相对项目根目录，压缩后平铺存放。
-make_zip() {
-    local archive="$1"
-    shift
-    local -a files=("$@")
-    rm -f "$archive"
-
-    if command -v zip >/dev/null 2>&1; then
-        ( cd "$ROOT_DIR" && zip -q -j "$archive" "${files[@]}" )
-        return 0
-    fi
-
-    if command -v powershell.exe >/dev/null 2>&1; then
-        local -a win_files=()
-        local file
-        for file in "${files[@]}"; do
-            win_files+=("'$(to_win "$ROOT_DIR/$file")'")
-        done
-        local joined
-        joined=$(IFS=,; printf '%s' "${win_files[*]}")
-        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
-            "Compress-Archive -LiteralPath @(${joined}) -DestinationPath '$(to_win "$ROOT_DIR/$archive")' -Force"
-        return 0
-    fi
-
-    fail "找不到可用的压缩工具（zip 或 powershell.exe）"
 }
 
 while [ $# -gt 0 ]; do
@@ -112,11 +63,60 @@ fi
 
 command -v go >/dev/null 2>&1 || fail "未找到 go 命令，请先安装 Go"
 
-ARCHIVE_NAME="deck-${VERSION}-windows-amd64.zip"
-CHECKSUM_NAME="deck-${VERSION}-windows-amd64.sha256"
 EXE_PATH="$ROOT_DIR/dist/deck.exe"
-ARCHIVE_PATH="$ROOT_DIR/dist/$ARCHIVE_NAME"
-CHECKSUM_PATH="$ROOT_DIR/dist/$CHECKSUM_NAME"
+
+# Windows 下正在运行的 deck.exe 会锁定输出文件，导致 go build 失败，
+# 因此构建前先结束正在运行的实例。
+
+# 成功输出命令名并返回 0；非 Windows 环境返回 1。
+windows_process_cmd() {
+    local name="$1"
+    if command -v "$name.exe" >/dev/null 2>&1; then
+        echo "$name.exe"
+        return 0
+    fi
+    if command -v "$name" >/dev/null 2>&1; then
+        echo "$name"
+        return 0
+    fi
+    return 1
+}
+
+deck_is_running() {
+    local tasklist_cmd output
+    tasklist_cmd="$(windows_process_cmd tasklist)" || return 1
+
+    output="$(MSYS_NO_PATHCONV=1 "$tasklist_cmd" /FI "IMAGENAME eq deck.exe" /NH 2>/dev/null || true)"
+    # tasklist 的提示信息随系统语言变化，统一转小写后只匹配映像名。
+    output="$(printf '%s' "$output" | tr '[:upper:]' '[:lower:]')"
+    case "$output" in
+        *deck.exe*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+kill_running_deck() {
+    local taskkill_cmd i
+    taskkill_cmd="$(windows_process_cmd taskkill)" || return 0
+
+    deck_is_running || return 0
+
+    echo "==> 检测到 deck.exe 正在运行，先结束进程"
+    # taskkill 可能因进程刚好自行退出而返回非零，此时不算失败。
+    if ! MSYS_NO_PATHCONV=1 "$taskkill_cmd" /F /IM deck.exe >/dev/null 2>&1; then
+        deck_is_running || return 0
+        fail "结束 deck.exe 失败，请手动关闭后重试"
+    fi
+
+    # 等待 Windows 释放可执行文件的句柄
+    for ((i = 0; i < 20; i++)); do
+        deck_is_running || return 0
+        sleep 0.5
+    done
+    fail "deck.exe 仍在运行，请手动关闭后重试"
+}
+
+kill_running_deck
 
 # go-winres 会生成 <前缀>_windows_amd64.syso，构建结束后清理。
 RESOURCE_BASE="rsrc_deck_$$_${RANDOM}"
@@ -143,15 +143,6 @@ GO111MODULE=on GOOS=windows GOARCH=amd64 go build \
     -ldflags "-s -w -X main.version=$VERSION -H windowsgui" \
     -o dist/deck.exe .
 
-echo "==> 打包发布包"
-make_zip "dist/$ARCHIVE_NAME" "dist/deck.exe" "README.md"
-
-echo "==> 计算校验值"
-{
-    printf '%s  %s\n' "$(sha256_of "$EXE_PATH")" "deck.exe"
-    printf '%s  %s\n' "$(sha256_of "$ARCHIVE_PATH")" "$ARCHIVE_NAME"
-} > "$CHECKSUM_PATH"
-
 echo
-echo "打包完成："
-ls -lh "$EXE_PATH" "$ARCHIVE_PATH" "$CHECKSUM_PATH"
+echo "构建完成："
+ls -lh "$EXE_PATH"

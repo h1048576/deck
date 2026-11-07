@@ -218,13 +218,15 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	switch int(versionValue) {
 	case MenuOrderVersion:
 		prefs.MenuOrder = NormalizeMenuOrder(data["menuOrder"])
+	case 4:
+		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(data["menuOrder"]), T3code, Paseo)
 	case 3:
 		saved, _ := data["menuOrder"].([]any)
-		prefs.MenuOrder = NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == T3code }))
+		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == T3code })), T3code, Paseo)
 	case 2:
 		// 版本 2 的顺序里没有 Claude，或被补齐到了末尾；去掉后由补齐逻辑放到 Droid 之后。
 		saved, _ := data["menuOrder"].([]any)
-		prefs.MenuOrder = NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude }))
+		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude })), T3code, Paseo)
 	}
 	prefs.FontOptions = ParseFontOptions(data["fontOptions"])
 	if migrateFontDefaults {
@@ -236,6 +238,16 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	}
 	prefs.Terminal = ParseTerminal(data["terminal"])
 	return prefs, nil
+}
+
+// moveBeforeZcode 把 moved 按给定顺序放到 Zcode 之前，其余应用保持用户原有顺序。
+func moveBeforeZcode(order []FeatureId, moved ...FeatureId) []FeatureId {
+	rest := slices.DeleteFunc(slices.Clone(order), func(id FeatureId) bool { return slices.Contains(moved, id) })
+	at := slices.Index(rest, Zcode)
+	if at < 0 {
+		at = len(rest)
+	}
+	return slices.Insert(rest, at, moved...)
 }
 
 func structToMap(v any) map[string]any {
@@ -272,14 +284,14 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 		app.HideBigModel, _ = config["hideBigModel"].(bool)
 		prefs.Applications[id] = app
 	}
-	for _, id := range []FeatureId{Workbuddy, Codex, Droid} {
+	for _, id := range []FeatureId{Workbuddy, Codex, Droid, T3code, Paseo} {
 		config, _ := apps[id].(map[string]any)
 		app := prefs.Applications[id]
 		app.HiddenModelPatterns = parseHiddenModelPatterns(config["hiddenModelPatterns"])
-		if id == Codex {
+		if id == Codex || id == T3code || id == Paseo {
 			if items, present := config["modelSelector"]; present {
 				app.ModelSelector = parseModelSelector(items)
-			} else {
+			} else if id == Codex {
 				app.ModelSelector = defaultCodexModelSelector()
 			}
 		}
@@ -299,26 +311,28 @@ func restoreModelSelectorOrder(prefs *Preferences, source []byte) {
 	if json.Unmarshal(source, &root) != nil {
 		return
 	}
-	app := prefs.Applications[Codex]
-	app.ModelSelectorOrder = nil
-	decoder := json.NewDecoder(bytes.NewReader(root.Applications[Codex].ModelSelector))
-	if token, err := decoder.Token(); err == nil && token == json.Delim('{') {
-		for decoder.More() {
-			token, err := decoder.Token()
-			if err != nil {
-				break
-			}
-			var value json.RawMessage
-			if decoder.Decode(&value) != nil {
-				break
-			}
-			name, ok := token.(string)
-			if _, valid := app.ModelSelector[name]; ok && valid && !slices.Contains(app.ModelSelectorOrder, name) {
-				app.ModelSelectorOrder = append(app.ModelSelectorOrder, name)
+	for _, id := range []FeatureId{Codex, T3code, Paseo} {
+		app := prefs.Applications[id]
+		app.ModelSelectorOrder = nil
+		decoder := json.NewDecoder(bytes.NewReader(root.Applications[id].ModelSelector))
+		if token, err := decoder.Token(); err == nil && token == json.Delim('{') {
+			for decoder.More() {
+				token, err := decoder.Token()
+				if err != nil {
+					break
+				}
+				var value json.RawMessage
+				if decoder.Decode(&value) != nil {
+					break
+				}
+				name, ok := token.(string)
+				if _, valid := app.ModelSelector[name]; ok && valid && !slices.Contains(app.ModelSelectorOrder, name) {
+					app.ModelSelectorOrder = append(app.ModelSelectorOrder, name)
+				}
 			}
 		}
+		prefs.Applications[id] = app
 	}
-	prefs.Applications[Codex] = app
 }
 
 // Update queues a change; the returned channel receives the flush outcome.

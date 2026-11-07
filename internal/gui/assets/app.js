@@ -18,7 +18,7 @@ const FEATURES = [
   { id: 't3code', name: 'T3Code', iconSrc: 'icons/t3code.png' },
   { id: 'zcode', name: 'ZCode', iconSrc: 'icons/zcode.png' },
 ]
-const DEFAULT_MENU_ORDER = ['codex', 'droid', 'claude', 'zcode', 'workbuddy', 'dsh', 't3code', 'qoder', 'paseo', 'manus']
+const DEFAULT_MENU_ORDER = ['codex', 'droid', 'claude', 't3code', 'paseo', 'zcode', 'workbuddy', 'dsh', 'qoder', 'manus']
 // fontScript：应用拒绝调试端口，只提供字体并复制脚本给用户在 DevTools 中执行。
 const APPLICATIONS = {
   codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false, credits: false },
