@@ -1,6 +1,6 @@
 (() => {
   const key = '__deckRemainingUsage';
-  if (window[key]?.version === 2) {
+  if (window[key]?.version === 3) {
     window[key].scan();
     return;
   }
@@ -38,17 +38,28 @@
   const text = (element, value) => {
     if (element.textContent !== value) element.textContent = value;
   };
+  // 新版按用户和账号隔离缓存；排除图片生成、续费提示等衍生查询。
+  const isUsageQuery = query => {
+    const key = query?.queryKey;
+    return Array.isArray(key) && key[0] === 'rate-limit-status' &&
+      (key.length === 1 || key.length === 3);
+  };
+  const getQuery = client => {
+    const queries = client?.getQueryCache().findAll({ predicate: isUsageQuery }) || [];
+    // 只读取仍被当前界面订阅的账号，避免切换账号后展示旧缓存。
+    const observed = queries.filter(query => query.getObserversCount() > 0);
+    return observed.sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)[0] ||
+      queries.find(query => query.queryKey.length === 1);
+  };
   const findClient = (element) => {
     const fiberKey = Object.keys(element).find(name => name.startsWith('__reactFiber'));
     for (let fiber = element[fiberKey]; fiber; fiber = fiber.return) {
       const props = fiber.memoizedProps;
       const client = props?.client ?? props?.queryClient;
-      if (typeof client?.getQueryCache === 'function' &&
-          client.getQueryCache().find({ queryKey: ['rate-limit-status'], exact: true })) return client;
+      if (typeof client?.getQueryCache === 'function') return client;
     }
     return null;
   };
-  const getQuery = (client) => client?.getQueryCache().find({ queryKey: ['rate-limit-status'], exact: true });
   const windows = (client) => {
     const query = getQuery(client);
     const limit = query?.state.status === 'error' ? null : query?.state.data?.rate_limit;
@@ -169,7 +180,7 @@
         control.unsubscribe?.();
         control.client = client;
         control.unsubscribe = client?.getQueryCache().subscribe(event => {
-          if (event.query?.queryKey.length === 1 && event.query.queryKey[0] === 'rate-limit-status') render(control);
+          if (isUsageQuery(event.query)) render(control);
         });
       }
       render(control);
@@ -196,7 +207,7 @@
       }
     }
   }, 60000);
-  window[key] = { version: 2, scan: schedule, observer, timer, dispose() {
+  window[key] = { version: 3, scan: schedule, observer, timer, dispose() {
     disposed = true;
     observer.disconnect();
     clearInterval(timer);

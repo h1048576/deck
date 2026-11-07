@@ -48,6 +48,9 @@ var dshReasoningEffortSource string
 //go:embed scripts/workbuddy-wide/model-filter.js
 var workbuddyModelFilterSource string
 
+//go:embed scripts/paseo-wide/host-workspaces.js
+var paseoHostWorkspacesSource string
+
 func currentProjectInjection(id string) string {
 	return strings.ReplaceAll(currentProjectSource, "__DECK_PROJECT_APP__", id)
 }
@@ -219,6 +222,9 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	}
 	layoutSource := strings.TrimSpace(source)
 	layoutSource = strings.TrimSuffix(layoutSource, ";")
+	if id == "paseo" {
+		return layoutSource + " && " + sidebar + " && " + paseoHostWorkspacesSource
+	}
 	if id == settings.T3code {
 		return layoutSource + " && " + t3ThreadDetailsSource + " && " + terminalInjection(id, s) + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
 	}

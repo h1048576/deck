@@ -413,6 +413,11 @@ $hiddenUiCss
 })();
 "@
 
+    $hostWorkspacesPath = Join-Path $PSScriptRoot 'host-workspaces.js'
+    if (Test-Path -LiteralPath $hostWorkspacesPath) {
+        $script += "`n" + [System.IO.File]::ReadAllText($hostWorkspacesPath)
+    }
+
     foreach ($target in $Targets) {
         # Apply now.
         Invoke-CdpCommand $target.webSocketDebuggerUrl 'Runtime.evaluate' @{

@@ -1,5 +1,18 @@
 (async () => {
   const failure = error => ({ items: [], error });
+  // 新版按用户和账号隔离缓存；排除图片生成、续费提示等衍生查询。
+  const isUsageQuery = query => {
+    const key = query?.queryKey;
+    return Array.isArray(key) && key[0] === 'rate-limit-status' &&
+      (key.length === 1 || key.length === 3);
+  };
+  const getQuery = client => {
+    const queries = client?.getQueryCache().findAll({ predicate: isUsageQuery }) || [];
+    // 只读取仍被当前界面订阅的账号，避免切换账号后展示旧缓存。
+    const observed = queries.filter(query => query.getObserversCount() > 0);
+    return observed.sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)[0] ||
+      queries.find(query => query.queryKey.length === 1);
+  };
   let query = null;
   for (const element of document.querySelectorAll('[data-composer-navigation-target="reasoning"]')) {
     const fiberKey = Object.keys(element).find(name => name.startsWith('__reactFiber'));
@@ -7,7 +20,7 @@
       const props = fiber.memoizedProps;
       const client = props?.client ?? props?.queryClient;
       if (typeof client?.getQueryCache !== 'function') continue;
-      query = client.getQueryCache().find({ queryKey: ['rate-limit-status'], exact: true });
+      query = getQuery(client);
       if (query) break;
     }
     if (query) break;
