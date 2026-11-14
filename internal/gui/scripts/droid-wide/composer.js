@@ -7,11 +7,11 @@
   const folderIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>';
   const style = document.createElement('style');
   style.textContent = `
-    [data-testid="chat-composer-actions-scroll"] [data-lesson-anchor="model-selector"] ~ :not(.deck-droid-project) { display:none !important; }
     .deck-droid-project, .deck-droid-usage { display:inline-flex; flex:none; align-items:center; gap:4px; height:28px; padding:0 6px; color:var(--core-v2-text-secondary, #9a9a9a); white-space:nowrap; font-variant-numeric:tabular-nums; }
     .deck-droid-project[hidden], .deck-droid-usage[hidden] { display:none !important; }
     .deck-droid-project svg { width:14px; height:14px; flex-shrink:0; }
-    .deck-droid-usage { margin-left:auto; margin-right:4px; }
+    .deck-droid-project { order:1; }
+    [data-testid="chat-composer-wrapper"] [data-testid="chat-composer-autonomy-trigger"] { order:2; }
   `;
   (document.head || document.documentElement).appendChild(style);
 
@@ -71,8 +71,8 @@
     }
     const summary = usageText();
     document.querySelectorAll('[data-testid="chat-composer-wrapper"]').forEach(wrapper => {
-      const model = wrapper.querySelector('[data-testid="chat-composer-actions-scroll"] [data-lesson-anchor="model-selector"]');
-      const voice = wrapper.querySelector('button[aria-label="Start voice dictation"]');
+      const plus = wrapper.querySelector('[data-testid="chat-composer-plus-menu-trigger"]');
+      const model = wrapper.querySelector('[data-lesson-anchor="model-selector"]');
       let widget = widgets.get(wrapper);
       if (!widget) {
         const project = document.createElement('span');
@@ -83,8 +83,9 @@
         widget = { project, usage: usageLabel };
         widgets.set(wrapper, widget);
       }
-      if (model) {
-        if (model.nextElementSibling !== widget.project) model.after(widget.project);
+      if (plus) {
+        // 排序由 CSS order 控制，不移动应用自己的节点，避免破坏 React 的 DOM 管理。
+        if (plus.nextElementSibling !== widget.project) plus.after(widget.project);
         const path = resolveProject(wrapper);
         widget.project.hidden = !path;
         if (path) {
@@ -94,10 +95,8 @@
       } else {
         widget.project.remove();
       }
-      // 语音按钮外层是该行的直接子元素，用量放在它前面并用 margin-left:auto 靠右。
-      const voiceItem = voice?.closest('[data-testid="chat-composer-actions-scroll"] ~ *');
-      if (voiceItem) {
-        if (voiceItem.previousElementSibling !== widget.usage) voiceItem.before(widget.usage);
+      if (model) {
+        if (model.previousElementSibling !== widget.usage) model.before(widget.usage);
         widget.usage.hidden = !summary;
         if (summary) {
           setText(widget.usage, summary.label);

@@ -288,7 +288,7 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 		config, _ := apps[id].(map[string]any)
 		app := prefs.Applications[id]
 		app.HiddenModelPatterns = parseHiddenModelPatterns(config["hiddenModelPatterns"])
-		if id == Codex || id == T3code || id == Paseo {
+		if id == Codex || id == T3code {
 			if items, present := config["modelSelector"]; present {
 				app.ModelSelector = parseModelSelector(items)
 			} else if id == Codex {
@@ -311,7 +311,7 @@ func restoreModelSelectorOrder(prefs *Preferences, source []byte) {
 	if json.Unmarshal(source, &root) != nil {
 		return
 	}
-	for _, id := range []FeatureId{Codex, T3code, Paseo} {
+	for _, id := range []FeatureId{Codex, T3code} {
 		app := prefs.Applications[id]
 		app.ModelSelectorOrder = nil
 		decoder := json.NewDecoder(bytes.NewReader(root.Applications[id].ModelSelector))

@@ -423,6 +423,13 @@ body *:not(.xterm, .xterm *) {
     max-width: $safeMaxWidth !important;
 }
 
+[data-new-session-centered-stage] > :has(> [data-new-session-composer-v2="true"]) {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
 [data-testid="chat-composer-wrapper"] > [data-direction="row"][data-flex-row="true"]:first-child,
 [data-testid="chat-composer-wrapper"] [contenteditable="true"][role="textbox"] {
     box-sizing: border-box !important;

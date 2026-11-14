@@ -10,25 +10,17 @@
   let patterns = [];
   let scheduled = false;
   const identity = item => {
-    // 第一段 span 是模型名，排除倍率、NEW 等标签，保留正则结尾匹配。
+    // 第一段 span 是模型名，排除倍率等标签，保留正则结尾匹配。
     const name = item.querySelector('span')?.textContent.trim() || '';
-    let fiber = item[Object.keys(item).find(key => key.startsWith('__reactFiber'))];
-    let root = fiber;
-    while (root?.return) root = root.return;
-    if (root?.stateNode?.current && root.stateNode.current !== root) fiber = fiber?.alternate;
-    for (let depth = 0; fiber && depth < 32; fiber = fiber.return, depth++) {
-      if (fiber.memoizedProps?.['data-testid'] === 'model-dropdown-wrapper') break;
-      if (typeof fiber.key === 'string') return [name, fiber.key];
-    }
-    return [name];
+    // 选项 id 形如 "<前缀>-<分组>:<模型ID>"，同一模型会出现在最近、新增、全部等多个分组。
+    const separator = item.id.indexOf(':');
+    return separator >= 0 ? [name, item.id.slice(separator + 1)] : [name];
   };
   const scan = () => {
     scheduled = false;
     for (const container of document.querySelectorAll(wrapper)) {
-      for (const item of container.querySelectorAll('[role="menuitem"]')) {
-        // Legacy 展开按钮也在此容器中，但没有模型行的布局标记。
-        const isModel = !!item.querySelector('[data-flex-row="true"]');
-        const hidden = isModel && patterns.some(pattern => identity(item).some(value => pattern.test(value)));
+      for (const item of container.querySelectorAll('[data-testid="model-picker-option"]')) {
+        const hidden = patterns.some(pattern => identity(item).some(value => pattern.test(value)));
         if (hidden && !item.hasAttribute(marker)) item.setAttribute(marker, '');
         else if (!hidden && item.hasAttribute(marker)) item.removeAttribute(marker);
       }

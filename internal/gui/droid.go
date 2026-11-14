@@ -34,6 +34,7 @@ func droidInjectionSource(s settings.DroidSettings) string {
 	}
 	css := `:root,body,body *:not(.xterm, .xterm *) { font-family:` + s.FontFamily + ` !important;font-size:` + itoa(s.FontSize) + `px !important; }
     [data-droid-wide-content],[data-new-session-composer-v2="true"] { box-sizing:border-box !important;min-width:0 !important;width:` + width + ` !important;max-width:` + maxWidth + ` !important; }
+    [data-new-session-centered-stage] > :has(> [data-new-session-composer-v2="true"]) { box-sizing:border-box !important;min-width:0 !important;width:100% !important;max-width:100% !important; }
     [data-testid="chat-composer-wrapper"] > [data-direction="row"][data-flex-row="true"]:first-child,
     [data-testid="chat-composer-wrapper"] [contenteditable="true"][role="textbox"] { box-sizing:border-box !important;height:` + s.ChatHeight + ` !important;min-height:` + s.ChatHeight + ` !important;max-height:` + s.ChatHeight + ` !important; }
     ` + hideLocalMerge + `

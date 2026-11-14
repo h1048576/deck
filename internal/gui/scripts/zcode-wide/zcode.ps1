@@ -565,6 +565,7 @@ samp,
     if ($HideChanges) { $css += '[data-testid="chat-summary-panel"] { display: none !important; }' }
     $cssJson = $css | ConvertTo-Json -Compress
     $modelLabelSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'model-label.js') -Raw
+    $defaultFullAccessSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'default-full-access.js') -Raw
     $currentProjectSource = (Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'current-project.js') -Raw).Replace('__DECK_PROJECT_APP__', 'zcode')
     $script = @"
 (() => {
@@ -580,6 +581,7 @@ samp,
     if (style.textContent !== css) style.textContent = css;
     $currentProjectSource;
     $modelLabelSource;
+    $defaultFullAccessSource;
     return style.isConnected && style.textContent === css;
   };
 

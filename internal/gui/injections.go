@@ -48,6 +48,9 @@ var t3ContextMeterSource string
 //go:embed scripts/zcode-wide/model-label.js
 var zcodeModelLabelSource string
 
+//go:embed scripts/zcode-wide/default-full-access.js
+var zcodeDefaultFullAccessSource string
+
 //go:embed scripts/dsh-wide/reasoning-effort.js
 var dshReasoningEffortSource string
 
@@ -229,13 +232,23 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	layoutSource := strings.TrimSpace(source)
 	layoutSource = strings.TrimSuffix(layoutSource, ";")
 	if id == "paseo" {
-		return layoutSource + " && " + sidebar + " && " + paseoHostWorkspacesSource + " && " + currentProjectInjection(id) + " && " + modelSelectorInjection(id, s)
+		return layoutSource + " && " + sidebar + " && " + paseoHostWorkspacesSource + " && " + currentProjectInjection(id) + ` && (() => {
+  const key = '__deckConfiguredModelSelector_paseo';
+  window[key]?.configure({});
+  window[key]?.dispose?.();
+  const old = window.__deckModelShortcut_paseo;
+  if (old) {
+    window.removeEventListener('keydown', old.handle, true);
+    delete window.__deckModelShortcut_paseo;
+  }
+  return true;
+})()`
 	}
 	if id == settings.T3code {
 		return layoutSource + " && " + modelSelectorInjection(id, s) + " && " + t3ThreadDetailsSource + " && " + t3ContextMeterSource + " && " + terminalInjection(id, s) + " && " + currentProjectInjection(id)
 	}
 	if id == "zcode" {
-		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource
+		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource + " && " + zcodeDefaultFullAccessSource
 	}
 	if id == "qoder" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar

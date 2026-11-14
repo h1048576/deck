@@ -573,7 +573,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if id == Workbuddy || id == Codex || id == Droid {
 		value.HiddenModelPatterns = parseHiddenModelPatterns(input["hiddenModelPatterns"])
 	}
-	if id == Codex || id == T3code || id == Paseo {
+	if id == Codex || id == T3code {
 		if items, present := input["modelSelector"]; present {
 			value.ModelSelector = parseModelSelector(items)
 		} else if id == Codex {
