@@ -33,6 +33,12 @@ var sidebarLayouts = map[string]sidebarLayout{
     }`,
 		css: `[data-wide-codex-sidebar] > :first-child > :first-child {
       width: 100% !important; min-width: 0 !important;
+    }
+    /* 背景描边和固定标题栏仍使用原生侧栏宽度，需与覆盖后的侧栏边缘对齐。
+       仅在侧栏展开且非悬停预览时覆盖，收起后交还原生布局。 */
+    [data-app-shell-workspace]:has(> [data-wide-codex-sidebar]) > [data-app-shell-surface-backing],
+    [data-app-shell-workspace]:has(> [data-wide-codex-sidebar]) [data-app-shell-titlebar] {
+      inset-inline-start: min(WIDTH, 100%) !important;
     }`,
 	},
 	"zcode": {
