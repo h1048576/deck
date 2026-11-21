@@ -21,15 +21,14 @@ const (
 	Zcode       FeatureId = "zcode"
 	Workbuddy   FeatureId = "workbuddy"
 	Dsh         FeatureId = "dsh"
-	Qoder       FeatureId = "qoder"
 	Paseo       FeatureId = "paseo"
 	Claude      FeatureId = "claude"
 	Antigravity FeatureId = "antigravity"
 )
 
-var DefaultMenuOrder = []FeatureId{Codex, Droid, T3code, Antigravity, Paseo, Claude, Zcode, Workbuddy, Dsh, Qoder}
+var DefaultMenuOrder = []FeatureId{Codex, Droid, Antigravity, Dsh, Paseo, T3code, Claude, Zcode, Workbuddy}
 
-const MenuOrderVersion = 6
+const MenuOrderVersion = 8
 const ApplicationPortsVersion = 1
 const FontDefaultsVersion = 1
 const InstallCacheMs = 60000
@@ -299,7 +298,7 @@ func ParseFontOptions(input any) []string {
 func DefaultPorts() map[FeatureId]int {
 	return map[FeatureId]int{
 		Codex: 9331, Droid: 9332, Zcode: 9333, Workbuddy: 9334, Dsh: 9335,
-		Qoder: 9336, Paseo: 9337, Claude: 9339, T3code: 9340,
+		Paseo: 9337, Claude: 9339, T3code: 9340,
 		Antigravity: 9341,
 	}
 }
@@ -330,7 +329,6 @@ var Applications = map[FeatureId]Capabilities{
 	Zcode:       {Name: "ZCode", Sidebar: true, FontFamily: true, FontSize: true, Changes: true, TerminalUI: true},
 	Workbuddy:   {Name: "WorkBuddy", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, Credits: true},
 	Dsh:         {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true, Credits: true},
-	Qoder:       {Name: "Qoder", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Paseo:       {Name: "Paseo", Sidebar: true, MaxWidth: true, Merge: true, Diff: true},
 	Claude:      {Name: "Claude", FontFamily: true, FontScript: true},
 	Antigravity: {Name: "Antigravity", Sidebar: true, FontFamily: true, FontSize: true, TerminalUI: true},
@@ -366,7 +364,6 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 		Zcode:       func() DroidSettings { s := base(Zcode); s.FontSize = 18; s.HideChanges = true; return s }(),
 		Workbuddy:   func() DroidSettings { s := base(Workbuddy); s.FontWeight = 200; return s }(),
 		Dsh:         func() DroidSettings { s := base(Dsh); s.DefaultReasoningEffort = "xhigh"; return s }(),
-		Qoder:       base(Qoder),
 		Paseo:       func() DroidSettings { s := base(Paseo); s.HideLocalMerge = true; s.HideGitDiff = true; return s }(),
 		Claude:      base(Claude),
 		Antigravity: func() DroidSettings { s := base(Antigravity); s.FontWeight = 100; return s }(),
@@ -686,20 +683,6 @@ func NormalizeMenuOrder(input any) []FeatureId {
 			}
 		}
 	}
-	if len(saved) > 0 && !contains(saved, Dsh) {
-		workbuddy := indexOf(saved, Workbuddy)
-		qoder := indexOf(saved, Qoder)
-		at := len(saved)
-		if workbuddy >= 0 {
-			at = workbuddy + 1
-		} else if qoder >= 0 {
-			at = qoder
-		}
-		saved = append(saved[:at], append([]FeatureId{Dsh}, saved[at:]...)...)
-	}
-	if at := indexOf(saved, Dsh); at >= 0 && !contains(saved, T3code) {
-		saved = slices.Insert(saved, at+1, T3code)
-	}
 	merged := append([]FeatureId(nil), saved...)
 	for _, id := range DefaultMenuOrder {
 		if !contains(merged, id) {
@@ -707,10 +690,20 @@ func NormalizeMenuOrder(input any) []FeatureId {
 		}
 	}
 	if !contains(saved, Antigravity) {
-		merged = moveMenuItemAfter(merged, Antigravity, T3code)
+		merged = moveMenuItemAfter(merged, Antigravity, Droid)
+	}
+	if !contains(saved, Dsh) {
+		merged = moveMenuItemAfter(merged, Dsh, Antigravity)
+	}
+	if !contains(saved, T3code) {
+		merged = moveMenuItemAfter(merged, T3code, Paseo)
 	}
 	if !contains(saved, Claude) {
-		merged = moveMenuItemAfter(merged, Claude, Paseo)
+		anchor := Paseo
+		if after := indexOf(merged, Paseo) + 1; after < len(merged) && merged[after] == T3code {
+			anchor = T3code
+		}
+		merged = moveMenuItemAfter(merged, Claude, anchor)
 	}
 	return merged
 }

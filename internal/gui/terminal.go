@@ -55,7 +55,7 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
           if (terminal) break;
         }
       }
-      // Qoder 未将 FitAddon 保存在 React ref 中，从已加载的终端插件获取。
+      // React ref 没有记录 FitAddon 时，从已加载的终端插件获取。
       if (terminal && !fit) fit = terminal._addonManager?._addons?.find(addon => !addon.isDisposed && typeof addon.instance?.fit === 'function' && typeof addon.instance?.proposeDimensions === 'function')?.instance;
       if (!terminal || (!fit && !current.nativeResize)) continue;
       const original = { fontFamily: terminal.options.fontFamily, fontSize: terminal.options.fontSize, fontWeight: terminal.options.fontWeight, fontWeightBold: terminal.options.fontWeightBold };
@@ -93,7 +93,6 @@ var terminalKeys = map[string]string{
 	"t3code":             "__wideT3CodeTerminalFollow",
 	"zcode":              "__wideZcodeTerminalFollow",
 	"dsh":                "__wideDshTerminalFollow",
-	"qoder":              "__wideQoderTerminalFollow",
 	settings.Antigravity: "__wideAntigravityTerminalFollow",
 }
 

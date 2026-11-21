@@ -32,7 +32,6 @@ type installation struct {
 var cdpPortPattern = regexp.MustCompile(`CDP 端口 (\d+)`)
 var failPattern = regexp.MustCompile(`失败：`)
 var quitErrorPattern = regexp.MustCompile(`(?m)(?:^|\r?\n)WIDE_QUIT_ERROR:([^\r\n]+)`)
-var qoderPagePattern = regexp.MustCompile(`^qoder(?:-cn)?-app://renderer/`)
 var antigravityPagePattern = regexp.MustCompile(`^https://127\.0\.0\.1:[0-9]+/`)
 
 // 检测脚本会加载 Appx/CIM 模块，同时启动过多 PowerShell 会造成明显的 CPU 峰值。
@@ -81,8 +80,6 @@ func (rt *applicationRuntime) connection(id string) *pageConnection {
 		styleID := id + "-wide-" + map[bool]string{true: "width", false: "ui"}[id == "codex" || id == "paseo"] + "-override"
 		var accepts func(string) bool
 		switch id {
-		case "qoder":
-			accepts = qoderPagePattern.MatchString
 		case "dsh":
 			accepts = func(url string) bool { return strings.HasPrefix(url, "dsh-app://app/") }
 		case settings.Antigravity:
@@ -448,7 +445,7 @@ func (rt *applicationRuntime) runWindows(id string, action string, s settings.Dr
 	}
 	if action == "normal" {
 		args = append(args, "-Normal")
-	} else if id == settings.Zcode || id == settings.Qoder || id == settings.Paseo {
+	} else if id == settings.Zcode || id == settings.Paseo {
 		args = append(args, "-LaunchOnly")
 	}
 	port, err := rt.executeScript(strings.Join(args, " "), capability.Name, report, onStage)

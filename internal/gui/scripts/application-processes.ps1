@@ -7,11 +7,6 @@ function Get-WideApplicationScope([string]$ExecutablePath, [string]$ApplicationI
     if ($ApplicationId -eq 'droid' -and $file.Name -match '(?i)^(?:factory-desktop|droid-desktop|Factory|Droid)\.exe$') {
         if ($file.Directory.Name -match '^app-[0-9][0-9A-Za-z.+_-]*$') { $root = $file.Directory.Parent.FullName }
         $versionPattern = 'app-[0-9][0-9A-Za-z.+_-]*'
-    } elseif ($ApplicationId -eq 'qoder' -and $file.Name -match '(?i)^Qoder(?: CN)?\.exe$') {
-        if ($file.Directory.Parent.Name -eq '.qoder-versions' -and $file.Directory.Name -match '^[0-9][0-9A-Za-z.+_-]*$') {
-            $root = $file.Directory.Parent.Parent.FullName
-        }
-        $versionPattern = '\.qoder-versions\\[0-9][0-9A-Za-z.+_-]*'
     }
     $rootExecutable = Join-Path $root $file.Name
     $versionExecutablePattern = if ($versionPattern) {

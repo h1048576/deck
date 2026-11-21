@@ -144,11 +144,11 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	if id == "codex" && isAutoSize(s.Width) {
 		safeWidth = "100%"
 	}
-	if (id == "qoder" || id == "workbuddy" || id == "paseo") && !isAutoSize(s.Width) {
+	if (id == "workbuddy" || id == "paseo") && !isAutoSize(s.Width) {
 		safeWidth = fmt.Sprintf("min(100%%, %s)", s.Width)
 	}
 	safeMaxWidth := s.MaxWidth
-	if id == "qoder" || id == "workbuddy" || id == "paseo" {
+	if id == "workbuddy" || id == "paseo" {
 		if s.MaxWidth == "none" {
 			safeMaxWidth = "100%"
 		} else {
@@ -249,9 +249,6 @@ func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	}
 	if id == "zcode" {
 		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar + " && " + currentProjectInjection(id) + " && " + zcodeModelLabelSource + " && " + zcodeDefaultFullAccessSource
-	}
-	if id == "qoder" {
-		return layoutSource + " && " + terminalInjection(id, s) + " && " + sidebar
 	}
 	if id == "workbuddy" {
 		patterns, _ := json.Marshal(s.HiddenModelPatterns)

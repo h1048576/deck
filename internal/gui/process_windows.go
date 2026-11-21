@@ -20,8 +20,6 @@ import (
 var (
 	droidExecutableName = regexp.MustCompile(`(?i)^(?:factory-desktop|droid-desktop|Factory|Droid)\.exe$`)
 	droidVersionDir     = regexp.MustCompile(`(?i)^app-[0-9][0-9A-Za-z.+_-]*$`)
-	qoderExecutableName = regexp.MustCompile(`(?i)^Qoder(?: CN)?\.exe$`)
-	qoderVersionDir     = regexp.MustCompile(`(?i)^[0-9][0-9A-Za-z.+_-]*$`)
 )
 
 type applicationScope struct {
@@ -47,18 +45,11 @@ func newApplicationScope(executablePath string, id string) (applicationScope, er
 	directory := filepath.Dir(full)
 	root := directory
 	versionPattern := ""
-	switch {
-	case id == settings.Droid && droidExecutableName.MatchString(name):
+	if id == settings.Droid && droidExecutableName.MatchString(name) {
 		if droidVersionDir.MatchString(filepath.Base(directory)) {
 			root = filepath.Dir(directory)
 		}
 		versionPattern = `app-[0-9][0-9A-Za-z.+_-]*`
-	case id == settings.Qoder && qoderExecutableName.MatchString(name):
-		parent := filepath.Dir(directory)
-		if strings.EqualFold(filepath.Base(parent), ".qoder-versions") && qoderVersionDir.MatchString(filepath.Base(directory)) {
-			root = filepath.Dir(parent)
-		}
-		versionPattern = `\.qoder-versions\\[0-9][0-9A-Za-z.+_-]*`
 	}
 	scope := applicationScope{
 		executable:     full,

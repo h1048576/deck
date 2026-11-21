@@ -42,14 +42,6 @@ var sidebarLayouts = map[string]sidebarLayout{
       --workspace-sidebar-width: WIDTH !important;
     }`,
 	},
-	"qoder": {
-		selector: `[data-panel][id="sidebar"], [data-layout-region="a"]`,
-		scan: `for (const panel of document.querySelectorAll('[data-panel][id="sidebar"]')) {
-      const content = panel.querySelector('[data-layout-region="a"]');
-      panel.toggleAttribute(attribute, !!content && content.getAttribute('aria-hidden') !== 'true' && Number.parseFloat(panel.style.flexGrow) > 0);
-    }`,
-		css: `[data-wide-qoder-sidebar] [data-layout-sidebar-content] { width: 100% !important; }`,
-	},
 	"paseo": {
 		selector: `[data-testid="left-sidebar-resize-handle"]`,
 		scan: `const panels = new Set();

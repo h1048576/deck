@@ -127,7 +127,7 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	defaults := DefaultApplications()
 	prefs := DefaultPreferences()
 	appsSection, _ := data["applications"].(map[string]any)
-	legacyPorts := map[FeatureId]int{Droid: 9335, Zcode: 9332, Workbuddy: 9333, Dsh: 9337, Qoder: 9334, Paseo: 9336}
+	legacyPorts := map[FeatureId]int{Droid: 9335, Zcode: 9332, Workbuddy: 9333, Dsh: 9337, Paseo: 9336}
 	fontDefaultsValue, _ := data["fontDefaultsVersion"].(float64)
 	migrateFontDefaults := int(fontDefaultsValue) != FontDefaultsVersion
 	applications := map[FeatureId]DroidSettings{}
@@ -217,7 +217,7 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 	versionValue, _ := data["menuOrderVersion"].(float64)
 	menuVersion := int(versionValue)
 	switch menuVersion {
-	case MenuOrderVersion, 5:
+	case MenuOrderVersion, 7, 6, 5:
 		prefs.MenuOrder = NormalizeMenuOrder(data["menuOrder"])
 	case 4:
 		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(data["menuOrder"]), T3code, Paseo)
@@ -229,9 +229,15 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		saved, _ := data["menuOrder"].([]any)
 		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude })), T3code, Paseo)
 	}
-	if menuVersion >= 2 && menuVersion < MenuOrderVersion {
+	if menuVersion >= 2 && menuVersion < 6 {
 		prefs.MenuOrder = moveMenuItemAfter(prefs.MenuOrder, Antigravity, T3code)
 		prefs.MenuOrder = moveMenuItemAfter(prefs.MenuOrder, Claude, Paseo)
+	}
+	if menuVersion >= 2 && menuVersion < 7 {
+		prefs.MenuOrder = moveMenuItemAfter(prefs.MenuOrder, T3code, Paseo)
+	}
+	if menuVersion >= 2 && menuVersion < 8 {
+		prefs.MenuOrder = moveMenuItemAfter(prefs.MenuOrder, Dsh, Antigravity)
 	}
 	prefs.FontOptions = ParseFontOptions(data["fontOptions"])
 	if migrateFontDefaults {

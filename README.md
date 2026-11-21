@@ -28,7 +28,6 @@ deck 不包含受管应用，请先安装需要使用的 AI 编程工具。发�
 | ZCode | 9333 |
 | WorkBuddy | 9334 |
 | DSH | 9335 |
-| Qoder | 9336 |
 | Paseo | 9337 |
 | Claude（Claude Desktop） | 不使用 |
 

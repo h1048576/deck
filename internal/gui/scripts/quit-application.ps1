@@ -1,7 +1,7 @@
 ﻿param(
     [Parameter(Mandatory = $true)]
     [string]$ExecutablePath,
-    [ValidateSet('', 'codex', 'droid', 'zcode', 't3code', 'workbuddy', 'dsh', 'qoder', 'paseo', 'claude', 'antigravity')]
+    [ValidateSet('', 'codex', 'droid', 'zcode', 't3code', 'workbuddy', 'dsh', 'paseo', 'claude', 'antigravity')]
     [string]$ApplicationId = '',
     [string]$RendererPath,
     [int]$ProtectedProcessId
