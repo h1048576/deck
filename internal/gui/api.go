@@ -209,6 +209,9 @@ func (h *host) buildRouter() *http.ServeMux {
 	mux.HandleFunc("GET /api/usage/droid", func(rw http.ResponseWriter, r *http.Request) {
 		writeJSON(rw, http.StatusOK, loadDroidUsage())
 	})
+	mux.HandleFunc("GET /api/usage/antigravity", func(rw http.ResponseWriter, r *http.Request) {
+		writeJSON(rw, http.StatusOK, h.rt.loadAntigravityUsage(h.store.Prefs().Applications[settings.Antigravity].ExecutablePath))
+	})
 
 	mux.HandleFunc("GET /api/harness/inventory", func(rw http.ResponseWriter, r *http.Request) {
 		includeSkills := r.URL.Query().Get("skills") != "0"

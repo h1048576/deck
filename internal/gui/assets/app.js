@@ -12,27 +12,27 @@ const FEATURES = [
   { id: 'paseo', name: 'Paseo', iconSrc: 'icons/paseo.png' },
   { id: 'qoder', name: 'Qoder', iconSrc: 'icons/qoder.png' },
   { id: 'workbuddy', name: 'WorkBuddy', iconSrc: 'icons/workbuddy.png' },
-  { id: 'manus', name: 'Manus', iconSrc: 'icons/manus.png' },
   { id: 'claude', name: 'Claude', iconSrc: 'icons/claude.png' },
   { id: 'dsh', name: 'DSH', iconSrc: 'icons/dsh.svg' },
   { id: 't3code', name: 'T3Code', iconSrc: 'icons/t3code.png' },
   { id: 'zcode', name: 'ZCode', iconSrc: 'icons/zcode.png' },
+  { id: 'antigravity', name: 'Antigravity', iconSrc: 'icons/antigravity.png' },
 ]
-const DEFAULT_MENU_ORDER = ['codex', 'droid', 'claude', 't3code', 'paseo', 'zcode', 'workbuddy', 'dsh', 'qoder', 'manus']
+const DEFAULT_MENU_ORDER = ['codex', 'droid', 't3code', 'antigravity', 'paseo', 'claude', 'zcode', 'workbuddy', 'dsh', 'qoder']
 // fontScript：应用拒绝调试端口，只提供字体并复制脚本给用户在 DevTools 中执行。
 const APPLICATIONS = {
   codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false, credits: false },
+  antigravity: { name: 'Antigravity', sidebarWidth: true, fontFamily: true, fontSize: true, terminal: true },
   droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
   t3code: { name: 'T3Code', sidebarWidth: true, fontFamily: true, fontSize: true, terminal: true, changes: false },
   zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true, fontScript: false, credits: false },
   workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false, credits: true },
-  manus: { name: 'Manus', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
   claude: { name: 'Claude', sidebarWidth: false, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: false, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: true, credits: false },
   dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: true },
   qoder: { name: 'Qoder', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
   paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
 }
-const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, manus: 9338, claude: 9339, t3code: 9340 }
+const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, qoder: 9336, paseo: 9337, claude: 9339, t3code: 9340, antigravity: 9341 }
 const DEFAULT_DROID = {
   width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
   fontFamily: 'Maple Mono NF CN', fontSize: 17, fontWeight: 300, boldFontWeight: 700, terminalFollow: true,
@@ -41,11 +41,11 @@ const DEFAULT_DROID = {
 }
 const DEFAULT_APPLICATIONS = {
   codex: { ...DEFAULT_DROID, fontWeight: 100, preventSummary: true, port: PORTS.codex },
+  antigravity: { ...DEFAULT_DROID, fontWeight: 100, port: PORTS.antigravity },
   droid: { ...DEFAULT_DROID },
   t3code: { ...DEFAULT_DROID, fontSize: 18, hideChanges: false, port: PORTS.t3code },
   zcode: { ...DEFAULT_DROID, fontSize: 18, hideChanges: true, port: PORTS.zcode },
   workbuddy: { ...DEFAULT_DROID, fontWeight: 200, showWorkbuddyCredits: true, port: PORTS.workbuddy },
-  manus: { ...DEFAULT_DROID, fontWeight: 200, port: PORTS.manus },
   claude: { ...DEFAULT_DROID, port: PORTS.claude },
   dsh: { ...DEFAULT_DROID, defaultReasoningEffort: 'xhigh', showWorkbuddyCredits: true, port: PORTS.dsh },
   qoder: { ...DEFAULT_DROID, port: PORTS.qoder },
@@ -153,19 +153,20 @@ function appearanceErrors(value) {
 }
 
 function normalizeMenuOrder(input) {
-  let saved = Array.isArray(input) ? input.filter(id => DEFAULT_MENU_ORDER.includes(id)) : []
+  const saved = Array.isArray(input) ? input.filter(id => DEFAULT_MENU_ORDER.includes(id)) : []
   if (saved.length && !saved.includes('dsh')) {
     const workbuddy = saved.indexOf('workbuddy')
     const qoder = saved.indexOf('qoder')
     saved.splice(workbuddy >= 0 ? workbuddy + 1 : qoder >= 0 ? qoder : saved.length, 0, 'dsh')
   }
-  if (saved.length && !saved.includes('claude')) {
-    const droid = saved.indexOf('droid')
-    const zcode = saved.indexOf('zcode')
-    saved.splice(droid >= 0 ? droid + 1 : zcode >= 0 ? zcode : saved.length, 0, 'claude')
-  }
   if (saved.length && !saved.includes('t3code')) saved.splice(saved.indexOf('dsh') + 1, 0, 't3code')
-  return [...new Set([...saved, ...DEFAULT_MENU_ORDER])]
+  const merged = [...new Set([...saved, ...DEFAULT_MENU_ORDER])]
+  for (const [id, anchor] of [['antigravity', 't3code'], ['claude', 'paseo']]) {
+    if (saved.includes(id)) continue
+    merged.splice(merged.indexOf(id), 1)
+    merged.splice(merged.indexOf(anchor) + 1, 0, id)
+  }
+  return merged
 }
 
 // ---- 应用图标 ----

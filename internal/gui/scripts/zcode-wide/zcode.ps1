@@ -559,6 +559,33 @@ samp,
     background: var(--color-background) !important;
 }
 
+/* 工作区贴边显示，消除主面板四周露出的灰色底框。 */
+[data-workspace-shell="true"] {
+    --workspace-panel-radius: 0px !important;
+}
+[data-workspace-shell="true"] > [data-panel][id="content"] {
+    padding: 0 !important;
+}
+[data-workspace-shell="true"] > [data-panel][id="content"] > .h-1\.5 {
+    height: 0 !important;
+}
+
+/* 分隔线仅占 1px，透明热区仍保留足够的拖拽宽度。 */
+[data-workspace-shell="true"] > [role="separator"][aria-controls="sidebar"] {
+    width: 1px !important;
+    background: var(--color-border) !important;
+}
+[data-workspace-shell="true"] > [role="separator"][aria-controls="sidebar"]::before {
+    content: "";
+    position: absolute;
+    inset: 0 -4px;
+    cursor: ew-resize;
+}
+[data-workspace-shell="true"] > [role="separator"][aria-controls="sidebar"] > [data-sidebar-divider-extension] {
+    width: 1px !important;
+}
+
+
 
 "@
 

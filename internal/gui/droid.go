@@ -56,6 +56,8 @@ func droidInjectionSource(s settings.DroidSettings) string {
       `)
 	sb.WriteString(strings.TrimSpace(droidComposerSource))
 	sb.WriteString(";\n")
+	sb.WriteString(composerUsageInjection(settings.Droid))
+	sb.WriteString(";\n")
 	patterns, _ := json.Marshal(s.HiddenModelPatterns)
 	sb.WriteString(strings.ReplaceAll(droidModelFilterSource, "__DECK_HIDDEN_MODEL_PATTERNS__", string(patterns)))
 	sb.WriteString(`;

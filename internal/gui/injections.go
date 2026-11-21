@@ -108,15 +108,15 @@ func isAutoSize(value string) bool { return value == "auto" || value == "fit-con
 
 // applicationInjection builds the injected JS for non-droid applications.
 func applicationInjection(id string, s settings.DroidSettings) string {
+	if id == settings.Antigravity {
+		return antigravityInjection(s)
+	}
 	return withApplicationStyle(id, s, applicationLayoutInjection(id, s))
 }
 
 func applicationLayoutInjection(id string, s settings.DroidSettings) string {
 	if id == "dsh" {
 		return dshInjection(s)
-	}
-	if id == "manus" {
-		return manusInjection(s)
 	}
 	template := injectionTemplates()[id]
 	if id == settings.T3code {

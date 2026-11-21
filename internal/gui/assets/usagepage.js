@@ -15,6 +15,7 @@ export function createUsagePage() {
   const sources = [
     { id: 'codex', name: 'Codex' },
     { id: 'droid', name: 'Droid' },
+    { id: 'antigravity', name: 'Antigravity' },
     { id: 'workbuddy', name: 'WorkBuddy' },
   ].map(source => ({ ...source, data: null, loading: false, error: '' }))
 

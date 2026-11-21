@@ -11,6 +11,7 @@
   style.id = 'deck-application-colors';
   const backgrounds = {
     codex: ['--color-token-bg-primary', '--color-token-main-surface-primary', '--color-token-side-bar-background', '--color-background-surface', '--app-color-background-surface', '--color-surface-primary', '--color-background-execution-output'],
+    antigravity: ['--background', '--content', '--sidebar', '--shell', '--shell-canvas'],
     dsh: ['--dsw-alias-bg-base', '--dsw-specific-sidebar-fill', '--bt-main', '--bt-sidebar'],
     t3code: ['--background', '--sidebar', '--color-background', '--color-sidebar'],
     zcode: ['--color-background', '--color-background-primary', '--color-sidebar'],
@@ -27,6 +28,7 @@
   };
   const foregrounds = {
     codex: ['--color-token-text-primary', '--color-text-primary', '--color-text', '--color-text-primary-ghost', '--color-text-primary-surface', '--user-message-text-color'],
+    antigravity: ['--foreground'],
     dsh: ['--dsw-alias-label-primary', '--bt-ink'],
     t3code: ['--foreground', '--sidebar-foreground', '--color-foreground'],
     zcode: ['--color-foreground', '--color-text-primary'],

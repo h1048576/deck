@@ -15,13 +15,25 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
   const entries = new Map();
   let current = settings;
   let scheduled = false;
+  function refreshNativeSize(element) {
+    const container = element.parentElement;
+    if (!container?.parentElement?.matches('[data-testid="terminal-active"]') ||
+        !container.getClientRects().length) return;
+    // Antigravity 通过终端容器的 ResizeObserver 同步界面行列与后端 PTY。
+    // 字体变化后让它重新测量容器，保留应用自己的终端尺寸更新流程。
+    container.setAttribute('data-deck-terminal-remeasure', '');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      container.removeAttribute('data-deck-terminal-remeasure');
+    }));
+  }
   function apply(entry) {
     const next = current.enabled ? { fontFamily: current.fontFamily, fontSize: current.fontSize, fontWeight: current.fontWeight, fontWeightBold: current.boldFontWeight } : entry.original;
     let changed = false;
     for (const [name, value] of Object.entries(next)) {
       if (entry.terminal.options[name] !== value) { entry.terminal.options[name] = value; changed = true; }
     }
-    if (changed || entry.terminal.element?.getClientRects().length) entry.fit?.fit();
+    if (entry.fit && (changed || entry.terminal.element?.getClientRects().length)) entry.fit.fit();
+    else if (changed && current.nativeResize) refreshNativeSize(entry.terminal.element);
   }
   function scan() {
     scheduled = false;
@@ -45,7 +57,7 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
       }
       // Qoder 未将 FitAddon 保存在 React ref 中，从已加载的终端插件获取。
       if (terminal && !fit) fit = terminal._addonManager?._addons?.find(addon => !addon.isDisposed && typeof addon.instance?.fit === 'function' && typeof addon.instance?.proposeDimensions === 'function')?.instance;
-      if (!terminal || !fit) continue;
+      if (!terminal || (!fit && !current.nativeResize)) continue;
       const original = { fontFamily: terminal.options.fontFamily, fontSize: terminal.options.fontSize, fontWeight: terminal.options.fontWeight, fontWeightBold: terminal.options.fontWeightBold };
       const entry = { terminal, fit, original };
       entries.set(element, entry);
@@ -77,11 +89,12 @@ const installTerminalFollowJS = `function installTerminalFollow(settings) {
 }`
 
 var terminalKeys = map[string]string{
-	"droid":  "__wideDroidTerminalFollow",
-	"t3code": "__wideT3CodeTerminalFollow",
-	"zcode":  "__wideZcodeTerminalFollow",
-	"dsh":    "__wideDshTerminalFollow",
-	"qoder":  "__wideQoderTerminalFollow",
+	"droid":              "__wideDroidTerminalFollow",
+	"t3code":             "__wideT3CodeTerminalFollow",
+	"zcode":              "__wideZcodeTerminalFollow",
+	"dsh":                "__wideDshTerminalFollow",
+	"qoder":              "__wideQoderTerminalFollow",
+	settings.Antigravity: "__wideAntigravityTerminalFollow",
 }
 
 type terminalFollowSettings struct {
@@ -91,6 +104,7 @@ type terminalFollowSettings struct {
 	FontSize       int    `json:"fontSize"`
 	FontWeight     int    `json:"fontWeight"`
 	BoldFontWeight int    `json:"boldFontWeight"`
+	NativeResize   bool   `json:"nativeResize,omitempty"`
 }
 
 // terminalInjection syncs xterm options so terminal fonts follow the settings.
@@ -102,6 +116,7 @@ func terminalInjection(id string, s settings.DroidSettings) string {
 		FontSize:       s.FontSize,
 		FontWeight:     s.FontWeight,
 		BoldFontWeight: s.BoldFontWeight,
+		NativeResize:   id == settings.Antigravity,
 	})
 	return "(" + installTerminalFollowJS + ")(" + string(payload) + ")"
 }

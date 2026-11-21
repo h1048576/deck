@@ -8,20 +8,20 @@ import (
 //go:embed scripts/codex-wide/read-usage.js
 var codexReadUsageSource string
 
-type codexUsageItem struct {
+type modelUsageItem struct {
 	Label string   `json:"label"`
 	Used  *float64 `json:"used"`
 	Reset string   `json:"reset"`
 }
 
-type codexUsage struct {
-	Items []codexUsageItem `json:"items"`
+type modelUsage struct {
+	Items []modelUsageItem `json:"items"`
 	Error string           `json:"error"`
 }
 
-func loadCodexUsage(port int) codexUsage {
-	failure := func(message string) codexUsage {
-		return codexUsage{Items: make([]codexUsageItem, 0), Error: message}
+func loadCodexUsage(port int) modelUsage {
+	failure := func(message string) modelUsage {
+		return modelUsage{Items: []modelUsageItem{}, Error: message}
 	}
 	targets, err := readTargets(port, func(string) bool { return true })
 	if err != nil || len(targets) == 0 {
@@ -43,22 +43,29 @@ func loadCodexUsage(port int) codexUsage {
 			result = failure("Codex 用量查询超时或连接已断开，请稍后刷新")
 			continue
 		}
-		var envelope struct {
-			Result struct {
-				Value *codexUsage `json:"value"`
-			} `json:"result"`
-			ExceptionDetails json.RawMessage `json:"exceptionDetails"`
-		}
-		if json.Unmarshal(response, &envelope) != nil || len(envelope.ExceptionDetails) != 0 || envelope.Result.Value == nil {
+		value := decodeModelUsage(response)
+		if value == nil {
 			continue
 		}
-		value := *envelope.Result.Value
 		if value.Error == "" && len(value.Items) > 0 {
-			return value
+			return *value
 		}
 		if value.Error != "" {
 			result = failure(value.Error)
 		}
 	}
 	return result
+}
+
+func decodeModelUsage(response json.RawMessage) *modelUsage {
+	var envelope struct {
+		Result struct {
+			Value *modelUsage `json:"value"`
+		} `json:"result"`
+		ExceptionDetails json.RawMessage `json:"exceptionDetails"`
+	}
+	if json.Unmarshal(response, &envelope) != nil || len(envelope.ExceptionDetails) != 0 {
+		return nil
+	}
+	return envelope.Result.Value
 }

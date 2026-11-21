@@ -16,7 +16,7 @@ var factoryHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 type droidUsageItem struct {
 	Label string `json:"label"`
-	Used  int    `json:"used"`
+	Used  *int   `json:"used"`
 	Reset string `json:"reset"`
 }
 
@@ -67,7 +67,8 @@ func loadDroidUsage() droidUsage {
 	item := func(label string, w window) droidUsageItem {
 		result := droidUsageItem{Label: label, Reset: "-"}
 		if w.UsedPercent != nil {
-			result.Used = int(math.Round(*w.UsedPercent))
+			used := int(math.Round(*w.UsedPercent))
+			result.Used = &used
 		}
 		if w.WindowEnd != nil {
 			if end, err := time.Parse(time.RFC3339Nano, *w.WindowEnd); err == nil {

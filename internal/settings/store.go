@@ -215,8 +215,9 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		prefs.Harness = harness
 	}
 	versionValue, _ := data["menuOrderVersion"].(float64)
-	switch int(versionValue) {
-	case MenuOrderVersion:
+	menuVersion := int(versionValue)
+	switch menuVersion {
+	case MenuOrderVersion, 5:
 		prefs.MenuOrder = NormalizeMenuOrder(data["menuOrder"])
 	case 4:
 		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(data["menuOrder"]), T3code, Paseo)
@@ -224,9 +225,13 @@ func decodePreferences(data map[string]any) (Preferences, error) {
 		saved, _ := data["menuOrder"].([]any)
 		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == T3code })), T3code, Paseo)
 	case 2:
-		// 版本 2 的顺序里没有 Claude，或被补齐到了末尾；去掉后由补齐逻辑放到 Droid 之后。
+		// 版本 2 的顺序里可能缺少 Claude，或把它补到了末尾。
 		saved, _ := data["menuOrder"].([]any)
 		prefs.MenuOrder = moveBeforeZcode(NormalizeMenuOrder(slices.DeleteFunc(slices.Clone(saved), func(item any) bool { return item == Claude })), T3code, Paseo)
+	}
+	if menuVersion >= 2 && menuVersion < MenuOrderVersion {
+		prefs.MenuOrder = moveMenuItemAfter(prefs.MenuOrder, Antigravity, T3code)
+		prefs.MenuOrder = moveMenuItemAfter(prefs.MenuOrder, Claude, Paseo)
 	}
 	prefs.FontOptions = ParseFontOptions(data["fontOptions"])
 	if migrateFontDefaults {
@@ -284,7 +289,7 @@ func (s *Store) mergeFileOnlySettings(prefs *Preferences) ([]byte, error) {
 		app.HideBigModel, _ = config["hideBigModel"].(bool)
 		prefs.Applications[id] = app
 	}
-	for _, id := range []FeatureId{Workbuddy, Codex, Droid, T3code, Paseo} {
+	for _, id := range []FeatureId{Workbuddy, Codex, Droid, T3code, Paseo, Antigravity} {
 		config, _ := apps[id].(map[string]any)
 		app := prefs.Applications[id]
 		app.HiddenModelPatterns = parseHiddenModelPatterns(config["hiddenModelPatterns"])

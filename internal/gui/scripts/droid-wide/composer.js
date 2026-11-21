@@ -1,14 +1,16 @@
 (() => {
   const key = '__deckDroidComposer';
-  if (window[key]) {
+  if (window[key]?.version === 2) {
     window[key].scan();
     return true;
   }
+  window[key]?.observer?.disconnect();
+  document.querySelectorAll('.deck-droid-project, .deck-droid-usage').forEach(element => element.remove());
   const folderIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>';
   const style = document.createElement('style');
   style.textContent = `
-    .deck-droid-project, .deck-droid-usage { display:inline-flex; flex:none; align-items:center; gap:4px; height:28px; padding:0 6px; color:var(--core-v2-text-secondary, #9a9a9a); white-space:nowrap; font-variant-numeric:tabular-nums; }
-    .deck-droid-project[hidden], .deck-droid-usage[hidden] { display:none !important; }
+    .deck-droid-project { display:inline-flex; flex:none; align-items:center; gap:4px; height:28px; padding:0 6px; color:var(--core-v2-text-secondary, #9a9a9a); white-space:nowrap; }
+    .deck-droid-project[hidden] { display:none !important; }
     .deck-droid-project svg { width:14px; height:14px; flex-shrink:0; }
     .deck-droid-project { order:1; }
     [data-testid="chat-composer-wrapper"] [data-testid="chat-composer-autonomy-trigger"] { order:2; }
@@ -42,15 +44,6 @@
     return trigger ? findProp(trigger, props => typeof props?.selectedProjectName === 'string' && props.selectedProjectName, 60) : '';
   };
 
-  let usage = { items: [], error: '' };
-  const usageText = () => {
-    if (usage.error) return { label: '用量 --', title: usage.error };
-    if (!usage.items?.length) return null;
-    return {
-      label: usage.items.map(item => `${item.label} ${item.used}%`).join(' · '),
-      title: ['用量', ...usage.items.map(item => `${item.label} 已用 ${item.used}%，重置于 ${item.reset || '-'}`)].join('\n'),
-    };
-  };
   const setText = (element, value) => {
     if (element.textContent !== value) element.textContent = value;
   };
@@ -58,73 +51,48 @@
     if (element.title !== value) element.title = value;
   };
 
-  const widgets = new Map();
+  const projects = new Map();
   let scheduled = false;
   const scan = () => {
     scheduled = false;
-    for (const [wrapper, widget] of widgets) {
+    for (const [wrapper, project] of projects) {
       if (!wrapper.isConnected) {
-        widget.project.remove();
-        widget.usage.remove();
-        widgets.delete(wrapper);
+        project.remove();
+        projects.delete(wrapper);
       }
     }
-    const summary = usageText();
     document.querySelectorAll('[data-testid="chat-composer-wrapper"]').forEach(wrapper => {
       const plus = wrapper.querySelector('[data-testid="chat-composer-plus-menu-trigger"]');
-      const model = wrapper.querySelector('[data-lesson-anchor="model-selector"]');
-      let widget = widgets.get(wrapper);
-      if (!widget) {
-        const project = document.createElement('span');
+      let project = projects.get(wrapper);
+      if (!plus) {
+        project?.remove();
+        projects.delete(wrapper);
+        return;
+      }
+      if (!project) {
+        project = document.createElement('span');
         project.className = 'deck-droid-project';
         project.innerHTML = `${folderIcon}<span></span>`;
-        const usageLabel = document.createElement('span');
-        usageLabel.className = 'deck-droid-usage';
-        widget = { project, usage: usageLabel };
-        widgets.set(wrapper, widget);
+        projects.set(wrapper, project);
       }
-      if (plus) {
-        // 排序由 CSS order 控制，不移动应用自己的节点，避免破坏 React 的 DOM 管理。
-        if (plus.nextElementSibling !== widget.project) plus.after(widget.project);
-        const path = resolveProject(wrapper);
-        widget.project.hidden = !path;
-        if (path) {
-          setText(widget.project.querySelector('span'), basename(path));
-          setTitle(widget.project, path);
-        }
-      } else {
-        widget.project.remove();
-      }
-      if (model) {
-        if (model.previousElementSibling !== widget.usage) model.before(widget.usage);
-        widget.usage.hidden = !summary;
-        if (summary) {
-          setText(widget.usage, summary.label);
-          setTitle(widget.usage, summary.title);
-        }
-      } else {
-        widget.usage.remove();
+      // 排序由 CSS order 控制，不移动应用自己的节点，避免破坏 React 的 DOM 管理。
+      if (plus.nextElementSibling !== project) plus.after(project);
+      const path = resolveProject(wrapper);
+      project.hidden = !path;
+      if (path) {
+        setText(project.querySelector('span'), basename(path));
+        setTitle(project, path);
       }
     });
   };
   const schedule = () => {
     if (scheduled) return;
     scheduled = true;
-    // 窗口在后台时 requestAnimationFrame 会暂停，用量推送需要及时显示。
     setTimeout(scan, 16);
   };
   const observer = new MutationObserver(schedule);
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  window[key] = { scan: schedule, observer };
-  window.__deckDroidUsage = {
-    key: '',
-    update(data, version) {
-      usage = data || { items: [], error: '' };
-      this.key = version;
-      schedule();
-      return true;
-    },
-  };
+  window[key] = { version: 2, scan: schedule, observer };
   scan();
   return true;
 })()

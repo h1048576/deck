@@ -30,7 +30,6 @@ deck 不包含受管应用，请先安装需要使用的 AI 编程工具。发�
 | DSH | 9335 |
 | Qoder | 9336 |
 | Paseo | 9337 |
-| Manus（Manus Studio） | 9338 |
 | Claude（Claude Desktop） | 不使用 |
 
 - 自动检测安装位置，也可手动指定可执行文件。

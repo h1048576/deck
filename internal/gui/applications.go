@@ -33,7 +33,7 @@ var cdpPortPattern = regexp.MustCompile(`CDP 端口 (\d+)`)
 var failPattern = regexp.MustCompile(`失败：`)
 var quitErrorPattern = regexp.MustCompile(`(?m)(?:^|\r?\n)WIDE_QUIT_ERROR:([^\r\n]+)`)
 var qoderPagePattern = regexp.MustCompile(`^qoder(?:-cn)?-app://renderer/`)
-var manusPagePattern = regexp.MustCompile(`^app://manus/(?:app|login|task)(?:[/?#]|$)`)
+var antigravityPagePattern = regexp.MustCompile(`^https://127\.0\.0\.1:[0-9]+/`)
 
 // 检测脚本会加载 Appx/CIM 模块，同时启动过多 PowerShell 会造成明显的 CPU 峰值。
 var detectSlots = make(chan struct{}, 3)
@@ -85,8 +85,8 @@ func (rt *applicationRuntime) connection(id string) *pageConnection {
 			accepts = qoderPagePattern.MatchString
 		case "dsh":
 			accepts = func(url string) bool { return strings.HasPrefix(url, "dsh-app://app/") }
-		case "manus":
-			accepts = manusPagePattern.MatchString
+		case settings.Antigravity:
+			accepts = antigravityPagePattern.MatchString
 		}
 		value = newPageConnection(settings.Applications[id].Name, styleID, accepts)
 		rt.connections[id] = value
@@ -412,12 +412,15 @@ func (rt *applicationRuntime) runWindows(id string, action string, s settings.Dr
 		_, err := rt.executeScript(command, capability.Name, report, onStage)
 		return err
 	}
-	args := []string{"& " + psQuote(rt.scriptFile(id)), "-Width", psQuote(s.Width), "-FontWeight", strconv.Itoa(s.FontWeight), "-Port", strconv.Itoa(s.Port)}
-	if capability.FontFamily {
-		args = append(args, "-FontFamily", psQuote(s.FontFamily))
-	}
-	if capability.FontSize {
-		args = append(args, "-FontSize", strconv.Itoa(s.FontSize))
+	args := []string{"& " + psQuote(rt.scriptFile(id)), "-Port", strconv.Itoa(s.Port)}
+	if id != settings.Antigravity {
+		args = append(args, "-Width", psQuote(s.Width), "-FontWeight", strconv.Itoa(s.FontWeight))
+		if capability.FontFamily {
+			args = append(args, "-FontFamily", psQuote(s.FontFamily))
+		}
+		if capability.FontSize {
+			args = append(args, "-FontSize", strconv.Itoa(s.FontSize))
+		}
 	}
 	if id == settings.Codex {
 		args = append(args, "-LineHeightPercent", strconv.Itoa(s.LineHeightPercent))
