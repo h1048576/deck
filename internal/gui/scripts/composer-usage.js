@@ -33,13 +33,14 @@ function installComposerUsage(app, loadUsage) {
       box-shadow:0 8px 28px #0004;
     }
     .deck-composer-usage-heading { display:flex; align-items:center; gap:7px; margin-bottom:8px; }
-    .deck-composer-usage-details { display:grid; grid-template-columns:minmax(0, 1fr) auto; column-gap:12px; row-gap:8px; padding:4px 0 4px 23px; align-items:baseline; }
-    .deck-composer-usage-details.is-grouped { grid-template-columns:auto auto minmax(0, 1fr); column-gap:8px; }
+    .deck-composer-usage-details { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; column-gap:8px; row-gap:8px; padding:4px 0 4px 23px; align-items:baseline; }
+    .deck-composer-usage-details.is-grouped { grid-template-columns:auto auto minmax(0, 1fr) auto; }
     .deck-composer-usage-row { display:contents; }
     .deck-composer-usage-group, .deck-composer-usage-period { white-space:nowrap; }
     .deck-composer-usage-single { grid-column:1 / 3; }
-    .deck-composer-usage-value { opacity:.7; white-space:nowrap; font-variant-numeric:tabular-nums; justify-self:end; }
-    .deck-composer-usage-details.is-grouped .deck-composer-usage-value { margin-left:12px; }
+    .deck-composer-usage-percent, .deck-composer-usage-reset { opacity:.7; white-space:nowrap; font-variant-numeric:tabular-nums; justify-self:end; }
+    .deck-composer-usage-percent { margin-left:4px; }
+    .deck-composer-usage-details.is-grouped .deck-composer-usage-percent { margin-left:12px; }
   `;
   (document.head || document.documentElement).append(style);
   const panel = document.createElement('div');
@@ -66,10 +67,8 @@ function installComposerUsage(app, loadUsage) {
     if (!value || value === '-' || value === '—') return '—';
     const date = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{2}:\d{2})/.exec(value);
     if (!date) return value;
-    const [, year, month, day, time] = date;
-    const today = new Date();
-    return +year === today.getFullYear() && +month === today.getMonth() + 1 && +day === today.getDate()
-      ? time : `${+month}月${+day}日 ${time}`;
+    const [, , month, day, time] = date;
+    return `${+month}月${+day}日 ${time}`;
   };
 
   const renderButton = ({ button, value }) => {
@@ -130,11 +129,16 @@ function installComposerUsage(app, loadUsage) {
         name.textContent = text;
         row.append(name);
       }
-      const value = document.createElement('span');
-      value.className = 'deck-composer-usage-value';
-      value.textContent = `${percent(remaining(item))}  ${resetLabel(item.reset)}`;
-      value.title = item.reset && item.reset !== '-' ? `重置时间：${item.reset}` : '重置时间未知';
-      row.append(value);
+      const pct = document.createElement('span');
+      pct.className = 'deck-composer-usage-percent';
+      pct.textContent = percent(remaining(item));
+      const reset = document.createElement('span');
+      reset.className = 'deck-composer-usage-reset';
+      reset.textContent = resetLabel(item.reset);
+      const resetTitle = item.reset && item.reset !== '-' ? `重置时间：${item.reset}` : '重置时间未知';
+      pct.title = resetTitle;
+      reset.title = resetTitle;
+      row.append(pct, reset);
       details.append(row);
     }
     position();
