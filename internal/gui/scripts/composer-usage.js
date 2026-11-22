@@ -33,8 +33,13 @@ function installComposerUsage(app, loadUsage) {
       box-shadow:0 8px 28px #0004;
     }
     .deck-composer-usage-heading { display:flex; align-items:center; gap:7px; margin-bottom:8px; }
-    .deck-composer-usage-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:12px; padding:4px 0 4px 23px; }
-    .deck-composer-usage-value { opacity:.7; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .deck-composer-usage-details { display:grid; grid-template-columns:minmax(0, 1fr) auto; column-gap:12px; row-gap:8px; padding:4px 0 4px 23px; align-items:baseline; }
+    .deck-composer-usage-details.is-grouped { grid-template-columns:auto auto minmax(0, 1fr); column-gap:8px; }
+    .deck-composer-usage-row { display:contents; }
+    .deck-composer-usage-group, .deck-composer-usage-period { white-space:nowrap; }
+    .deck-composer-usage-single { grid-column:1 / 3; }
+    .deck-composer-usage-value { opacity:.7; white-space:nowrap; font-variant-numeric:tabular-nums; justify-self:end; }
+    .deck-composer-usage-details.is-grouped .deck-composer-usage-value { margin-left:12px; }
   `;
   (document.head || document.documentElement).append(style);
   const panel = document.createElement('div');
@@ -99,18 +104,37 @@ function installComposerUsage(app, loadUsage) {
     const items = report?.items || [];
     details.replaceChildren();
     if (!items.length) {
+      details.className = '';
       details.textContent = refreshing || !report ? '正在查询用量…' : report.error || '暂无用量数据';
+      position();
+      return;
     }
-    for (const item of items) {
+    const resolvedItems = items.map(item => ({ item, text: labels[item.label] || item.label || '' }));
+    const hasGroup = resolvedItems.some(({ text }) => text.includes(' · '));
+    details.className = hasGroup ? 'deck-composer-usage-details is-grouped' : 'deck-composer-usage-details';
+    for (const { item, text } of resolvedItems) {
       const row = document.createElement('div');
       row.className = 'deck-composer-usage-row';
-      const name = document.createElement('span');
-      name.textContent = labels[item.label] || item.label;
+      const sepIndex = hasGroup ? text.indexOf(' · ') : -1;
+      if (sepIndex >= 0) {
+        const group = document.createElement('span');
+        group.className = 'deck-composer-usage-group';
+        group.textContent = text.slice(0, sepIndex);
+        const period = document.createElement('span');
+        period.className = 'deck-composer-usage-period';
+        period.textContent = text.slice(sepIndex + 1);
+        row.append(group, period);
+      } else {
+        const name = document.createElement('span');
+        if (hasGroup) name.className = 'deck-composer-usage-single';
+        name.textContent = text;
+        row.append(name);
+      }
       const value = document.createElement('span');
       value.className = 'deck-composer-usage-value';
       value.textContent = `${percent(remaining(item))}  ${resetLabel(item.reset)}`;
       value.title = item.reset && item.reset !== '-' ? `重置时间：${item.reset}` : '重置时间未知';
-      row.append(name, value);
+      row.append(value);
       details.append(row);
     }
     position();

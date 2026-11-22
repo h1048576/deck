@@ -9,9 +9,24 @@
     :root {
       --vscode-font-family: ${font} !important;
       --editor-font-family: ${font} !important;
+      --font-sans: ${font} !important;
+      --font-mono: ${font} !important;
+      --default-font-family: ${font} !important;
+      --default-mono-font-family: ${font} !important;
       --app-font-scale: ${size / 14} !important;
       --font-size: ${size}px !important;
+      --vscode-font-size: ${size}px !important;
+      --vscode-editor-font-size: ${size}px !important;
+      --editor-font-size: ${size}px !important;
       --max-conversation-width: ${width} !important;
+    }
+    :is(#antigravity-wide-ui-override#antigravity-wide-ui-override, :root, :root *:not(.xterm, .xterm *, .katex *)),
+    :is(#antigravity-wide-ui-override#antigravity-wide-ui-override, :root *:not(.xterm, .xterm *, .katex *))::placeholder {
+      font-size: ${size}px !important;
+    }
+    :is(#antigravity-wide-ui-override#antigravity-wide-ui-override, :root, :root *:not(.xterm, .xterm *, .codicon, [class*="codicon-"], .katex, .katex *)),
+    :is(#antigravity-wide-ui-override#antigravity-wide-ui-override, :root *:not(.xterm, .xterm *, .codicon, [class*="codicon-"], .katex, .katex *))::placeholder {
+      font-family: ${font} !important;
     }
     /* 去掉原生 max(30vw, ...) 的下限，仍受各会话列可用空间限制。 */
     #root [style*="max-width:"][style*="--max-conversation-width"] {

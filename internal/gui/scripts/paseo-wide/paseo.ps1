@@ -334,25 +334,103 @@ $hiddenUiCss
     $cssJson = $css | ConvertTo-Json -Compress
     $script = @"
 (() => {
-  const installContentWidthGuard = () => {
-    const guardKey = '__paseoWideContentGuard';
-    const marker = 'data-paseo-wide-content';
-    const defaultMaxWidths = new Set(['820px', '1200px']);
-    if (window[guardKey]?.version === 2) {
-      window[guardKey].scan();
+  const styleId = 'paseo-wide-width-override';
+  const unistylesId = 'unistyles-web';
+  const marker = 'data-paseo-wide-content';
+  const guardKey = '__paseoWideContentGuard';
+  const settingsKey = '@paseo:app-settings';
+
+  const readTargetMaxWidths = (sheet) => {
+    const widths = new Set(['820px', '1200px']);
+    try {
+      const raw = window.localStorage.getItem(settingsKey);
+      if (raw) {
+        const value = JSON.parse(raw)?.contentMaxWidth;
+        if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+          widths.add(Math.floor(value) + 'px');
+        }
+      }
+    } catch {}
+    try {
+      const turnFooter = document.querySelector('[data-testid="turn-footer"]');
+      if (sheet && turnFooter) {
+        for (const rule of sheet.cssRules) {
+          if (rule.type !== CSSRule.STYLE_RULE) continue;
+          if (rule.style.width !== '100%') continue;
+          const mw = rule.style.maxWidth;
+          if (!mw || !mw.endsWith('px')) continue;
+          const num = Number(mw.slice(0, -2));
+          if (!Number.isFinite(num) || num <= 0) continue;
+          try {
+            if (turnFooter.matches(rule.selectorText)) widths.add(mw);
+          } catch {}
+        }
+      }
+    } catch {}
+    return widths;
+  };
+
+  const collectUnistylesSelectors = (sheet, targetMaxWidths) => {
+    const selectors = new Set();
+    if (!sheet) return [];
+    try {
+      for (const rule of sheet.cssRules) {
+        if (rule.type !== CSSRule.STYLE_RULE) continue;
+        if (rule.style.width !== '100%') continue;
+        if (!targetMaxWidths.has(rule.style.maxWidth)) continue;
+        const selector = rule.selectorText?.trim();
+        if (selector) selectors.add(selector);
+      }
+    } catch {}
+    return Array.from(selectors);
+  };
+
+  const installContentWidthGuard = (initialBaseCss) => {
+    if (window[guardKey]?.version === 3) {
+      window[guardKey].update(initialBaseCss);
       return;
     }
 
-    window[guardKey]?.observer?.disconnect();
+    window[guardKey]?.dispose?.();
+    window[guardKey]?.observer?.disconnect?.();
+
+    let baseCss = initialBaseCss;
     const queuedRoots = new Set();
     let scanScheduled = false;
+    let scanFrame = 0;
+    let unistylesTimer = 0;
+    const extraTimers = [];
 
-    const markContentNodes = (root) => {
+    const getStyleEl = () => {
+      let style = document.getElementById(styleId);
+      if (!style) {
+        style = document.createElement('style');
+        style.id = styleId;
+        (document.head || document.documentElement).appendChild(style);
+      }
+      return style;
+    };
+
+    const syncStyle = () => {
+      const unistylesEl = document.getElementById(unistylesId);
+      const sheet = unistylesEl?.sheet || null;
+      const targetMaxWidths = readTargetMaxWidths(sheet);
+      const selectors = collectUnistylesSelectors(sheet, targetMaxWidths);
+      const combined = ['[' + marker + ']', ...selectors].join(',\n');
+      const nextCss = baseCss.replace('[' + marker + ']', () => combined);
+      const style = getStyleEl();
+      if (style.textContent !== nextCss) style.textContent = nextCss;
+      return targetMaxWidths;
+    };
+
+    const markContentNodes = (root, targetMaxWidths) => {
       if (!(root instanceof Element)) return;
+      if (root.id === 'overlay-root' || root.closest('#overlay-root')) return;
       const candidates = [root, ...root.querySelectorAll('*')];
       candidates.forEach((element) => {
+        if (element.id === 'overlay-root' || element.closest('#overlay-root')) return;
         if (element.hasAttribute(marker)) return;
-        if (defaultMaxWidths.has(getComputedStyle(element).maxWidth)) {
+        if (targetMaxWidths.has(getComputedStyle(element).maxWidth)) {
           element.setAttribute(marker, '');
         }
       });
@@ -360,10 +438,14 @@ $hiddenUiCss
 
     const flushScan = () => {
       scanScheduled = false;
-      const roots = Array.from(queuedRoots);
+      scanFrame = 0;
+      const targetMaxWidths = syncStyle();
+      const roots = queuedRoots.has(document.documentElement)
+        ? [document.documentElement]
+        : Array.from(queuedRoots);
       queuedRoots.clear();
       roots.forEach((root) => {
-        if (root.isConnected) markContentNodes(root);
+        if (root.isConnected) markContentNodes(root, targetMaxWidths);
       });
     };
 
@@ -372,14 +454,30 @@ $hiddenUiCss
       queuedRoots.add(root);
       if (scanScheduled) return;
       scanScheduled = true;
-      window.requestAnimationFrame(flushScan);
+      scanFrame = window.requestAnimationFrame(flushScan);
     };
 
+    const isUnistylesNode = (node) => node instanceof Element && node.id === unistylesId;
+
     const observer = new MutationObserver((records) => {
+      let styleMutated = false;
       records.forEach((record) => {
+        if (record.target instanceof Element && record.target.id === styleId) return;
+        if (isUnistylesNode(record.target) || Array.from(record.addedNodes).some(isUnistylesNode)) {
+          styleMutated = true;
+          return;
+        }
         if (record.type === 'attributes') scheduleScan(record.target);
-        record.addedNodes.forEach((node) => scheduleScan(node));
+        record.addedNodes.forEach((node) => {
+          if (node instanceof Element && node.id === styleId) return;
+          scheduleScan(node);
+        });
       });
+      if (styleMutated) {
+        scheduleScan(document.documentElement);
+        window.clearTimeout(unistylesTimer);
+        unistylesTimer = window.setTimeout(() => scheduleScan(document.documentElement), 150);
+      }
     });
     observer.observe(document.documentElement, {
       attributes: true,
@@ -388,23 +486,36 @@ $hiddenUiCss
       subtree: true,
     });
 
-    window[guardKey] = { version: 2, observer, scan: scheduleScan };
-    scheduleScan();
+    const onStorage = (event) => {
+      if (!event.key || event.key === settingsKey) {
+        scheduleScan(document.documentElement);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    const update = (nextBaseCss) => {
+      baseCss = nextBaseCss;
+      syncStyle();
+      scheduleScan(document.documentElement);
+    };
+
+    const dispose = () => {
+      observer.disconnect();
+      window.removeEventListener('storage', onStorage);
+      window.cancelAnimationFrame(scanFrame);
+      window.clearTimeout(unistylesTimer);
+      extraTimers.forEach((timerId) => window.clearTimeout(timerId));
+    };
+
+    window[guardKey] = { version: 3, observer, scan: scheduleScan, update, dispose };
+    update(initialBaseCss);
     [250, 1000, 3000].forEach((delay) => {
-      window.setTimeout(() => scheduleScan(document.documentElement), delay);
+      extraTimers.push(window.setTimeout(() => scheduleScan(document.documentElement), delay));
     });
   };
 
   const apply = () => {
-    const id = 'paseo-wide-width-override';
-    let style = document.getElementById(id);
-    if (!style) {
-      style = document.createElement('style');
-      style.id = id;
-      (document.head || document.documentElement).appendChild(style);
-    }
-    style.textContent = $cssJson;
-    installContentWidthGuard();
+    installContentWidthGuard($cssJson);
     return true;
   };
   if (document.head || document.documentElement) return apply();

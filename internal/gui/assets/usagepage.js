@@ -69,7 +69,8 @@ export function createUsagePage() {
       } else {
         const labels = { '5h': '5 小时', '7d': '7 天', '1m': '月度' }
         for (const item of source.data.items || []) {
-          metric(list, labels[item.label] || item.label, item.used == null ? '—' : `${item.used}% 已用`, `重置时间：${item.reset || '—'}`, item.used)
+          const remaining = Number.isFinite(item?.used) ? Math.round(Math.max(0, Math.min(100, 100 - item.used))) : null
+          metric(list, labels[item.label] || item.label, remaining == null ? '—' : `${remaining}% 剩余`, `重置时间：${item.reset || '—'}`, remaining)
         }
         if (!source.data.items?.length) list.appendChild(el('p', 'harness-empty', '暂无用量数据'))
       }

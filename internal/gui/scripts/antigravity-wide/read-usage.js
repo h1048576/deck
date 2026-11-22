@@ -32,6 +32,15 @@
     return failure('Antigravity 用量查询失败，请检查网络或登录状态后刷新');
   }
 
+  const windowSeconds = bucket => {
+    const window = bucket.window?.trim().toLowerCase();
+    if (window === 'daily') return 86400;
+    if (window === 'weekly') return 604800;
+    const match = /^(\d+)([smhd])$/.exec(window);
+    if (!match) return Number.MAX_SAFE_INTEGER;
+    const scale = { s: 1, m: 60, h: 3600, d: 86400 }[match[2]];
+    return Number(match[1]) * scale;
+  };
   const windowLabel = bucket => {
     const window = bucket.window?.trim().toLowerCase();
     if (window === 'daily') return '每日';
@@ -51,7 +60,8 @@
   };
   const items = [];
   for (const group of groups ?? []) {
-    for (const bucket of group.buckets ?? []) {
+    const buckets = [...(group.buckets ?? [])].sort((a, b) => windowSeconds(a) - windowSeconds(b));
+    for (const bucket of buckets) {
       if (bucket.disabled) continue;
       const fraction = bucket.remaining?.case === 'remainingFraction' ? bucket.remaining.value : null;
       const used = Number.isFinite(fraction) && fraction >= 0 && fraction <= 1 ? Math.round((1 - fraction) * 100) : null;
