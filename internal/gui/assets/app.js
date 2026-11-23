@@ -21,18 +21,18 @@ const DEFAULT_MENU_ORDER = ['codex', 'droid', 'antigravity', 'dsh', 'paseo', 't3
 // fontScript：应用拒绝调试端口，只提供字体并复制脚本给用户在 DevTools 中执行。
 const APPLICATIONS = {
   codex: { name: 'Codex', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: true, terminal: true, fontScript: false, credits: false },
-  antigravity: { name: 'Antigravity', sidebarWidth: true, fontFamily: true, fontSize: true, terminal: true },
-  droid: { name: 'Droid', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
+  antigravity: { name: 'Antigravity', sidebarWidth: true, sidebarMode: true, fontFamily: true, fontSize: true, terminal: true },
+  droid: { name: 'Droid', sidebarWidth: true, sidebarMode: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: false },
   t3code: { name: 'T3Code', sidebarWidth: true, fontFamily: true, fontSize: true, terminal: true, changes: false },
   zcode: { name: 'ZCode', sidebarWidth: true, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: true, summary: false, terminal: true, fontScript: false, credits: false },
   workbuddy: { name: 'WorkBuddy', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: false, credits: true },
   claude: { name: 'Claude', sidebarWidth: false, maxWidth: false, chatHeight: false, fontFamily: true, fontSize: false, merge: false, diff: false, changes: false, summary: false, terminal: false, fontScript: true, credits: false },
   dsh: { name: 'DSH', sidebarWidth: true, maxWidth: true, chatHeight: true, fontFamily: true, fontSize: true, merge: false, diff: false, changes: false, summary: false, terminal: true, fontScript: false, credits: true },
-  paseo: { name: 'Paseo', sidebarWidth: true, maxWidth: true, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
+  paseo: { name: 'Paseo', sidebarWidth: true, sidebarMode: true, maxWidth: true, chatHeight: false, fontFamily: false, fontSize: false, merge: true, diff: true, changes: false, summary: false, terminal: false, fontScript: false, credits: false },
 }
 const PORTS = { codex: 9331, droid: 9332, zcode: 9333, workbuddy: 9334, dsh: 9335, paseo: 9337, claude: 9339, t3code: 9340, antigravity: 9341 }
 const DEFAULT_DROID = {
-  width: '70vw', sidebarWidth: '15vw', maxWidth: '90rem', chatHeight: '80px',
+  width: '70vw', sidebarWidth: '15vw', sidebarMode: 'normal', maxWidth: '90rem', chatHeight: '80px',
   fontFamily: 'Maple Mono NF CN', fontSize: 17, fontWeight: 300, boldFontWeight: 700, terminalFollow: true,
   lineHeightPercent: 100, backgroundColor: '#111111', foregroundColor: '#F0F0F0',
   hideLocalMerge: false, hideGitDiff: false, hideChanges: false, preventSummary: false, showWorkbuddyCredits: false, port: 9332, executablePath: '',
@@ -109,6 +109,7 @@ function settingsErrors(value) {
   const errors = {}
   if (!widthPattern.test(value.width)) errors.width = '请输入有效宽度，例如 70vw、80% 或 1200px'
   if (!sidebarPattern.test(value.sidebarWidth)) errors.sidebarWidth = '请输入有效侧栏宽度，例如 15vw、15% 或 280px'
+  if (value.sidebarMode !== undefined && value.sidebarMode !== 'normal' && value.sidebarMode !== 'compact') errors.sidebarMode = '左侧栏模式无效'
   if (!maxPattern.test(value.maxWidth)) errors.maxWidth = '请输入有效最大宽度，例如 90rem 或 1200px'
   if (!heightPattern.test(value.chatHeight)) errors.chatHeight = '请输入有效高度，例如 80px'
   if (!Number.isInteger(value.fontSize) || value.fontSize < 8 || value.fontSize > 72) errors.fontSize = '字号须为 8–72 的整数'
@@ -644,6 +645,14 @@ function renderApplicationPage(id) {
     }
     if (capability.credits) {
       layoutList.appendChild(SettingRow('WorkBuddy积分', null, null, Switch('WorkBuddy积分', settings.showWorkbuddyCredits, disabled, value => update('showWorkbuddyCredits', value))))
+    }
+    if (capability.sidebarMode) {
+      const sidebarMode = SelectControl({
+        id: 'sidebarMode', label: '左侧栏模式', value: settings.sidebarMode ?? defaults.sidebarMode, disabled,
+        options: [{ value: 'normal', label: '正常' }, { value: 'compact', label: '紧凑' }],
+        onChange: value => update('sidebarMode', value),
+      })
+      layoutList.appendChild(SettingRow('左侧栏模式', 'sidebarMode', errors.sidebarMode, sidebarMode.node))
     }
     layoutSection.appendChild(layoutList)
     page.appendChild(layoutSection)

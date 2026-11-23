@@ -299,12 +299,12 @@ input[type='number']:focus:not(:disabled)::-webkit-inner-spin-button, input[type
 .font-dropdown-button { position: absolute; right: 4px; top: 0; display: grid; place-items: center; width: 28px; height: 100%; border: 0; border-radius: 6px; background: transparent; color: var(--muted); opacity: 0; }
 .font-control:focus-within .font-dropdown-button:not(:disabled) { opacity: 1; }
 .select-control { max-width: 100%; }
-.app-settings-page .select-control { width: var(--numeric-field-width); }
-.app-settings-page .select-control .dropdown-trigger { width: 100%; min-width: 0; text-align: right; }
+.app-settings-page .select-control, .select-control:has(> #sidebarMode) { width: var(--numeric-field-width); }
+.app-settings-page .select-control .dropdown-trigger, .select-control:has(> #sidebarMode) .dropdown-trigger { width: 100%; min-width: 0; text-align: right; }
 .app-settings-page input { text-align: right; }
 .dropdown-trigger { display: flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 156px; max-width: 100%; text-align: left; }
 .dropdown-trigger > span:not(.dropdown-chevron) { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-#app-theme, #app-mode, #app-startupMode { text-align: right; }
+#app-theme, #app-mode, #app-startupMode, #sidebarMode { text-align: right; }
 .dropdown-chevron { flex-shrink: 0; color: var(--muted); opacity: 0; }
 .select-control:focus-within .dropdown-chevron { opacity: 1; }
 .dropdown-menu { position: fixed; z-index: 30; padding: 6px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 18px; background: var(--dropdown-surface); color: var(--text); box-shadow: 0 8px 24px var(--dropdown-shadow); font-size: .95rem; }

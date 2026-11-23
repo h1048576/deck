@@ -42,8 +42,10 @@ const LegacyDefaultForeground = "#FCFCFC"
 
 // DroidSettings is the per-application appearance configuration.
 type DroidSettings struct {
-	Width             string `json:"width"`
-	SidebarWidth      string `json:"sidebarWidth"`
+	Width        string `json:"width"`
+	SidebarWidth string `json:"sidebarWidth"`
+	// SidebarMode 控制左侧栏会话条目密度：normal 或 compact。
+	SidebarMode       string `json:"sidebarMode"`
 	MaxWidth          string `json:"maxWidth"`
 	ChatHeight        string `json:"chatHeight"`
 	FontFamily        string `json:"fontFamily"`
@@ -305,18 +307,19 @@ func DefaultPorts() map[FeatureId]int {
 
 // Capabilities lists which settings an application supports.
 type Capabilities struct {
-	Name       string
-	Sidebar    bool
-	MaxWidth   bool
-	ChatHeight bool
-	FontFamily bool
-	FontSize   bool
-	Merge      bool
-	Diff       bool
-	Changes    bool
-	Summary    bool
-	TerminalUI bool // whether the terminal follow switch is offered
-	Credits    bool // whether the WorkBuddy credits switch is offered
+	Name        string
+	Sidebar     bool
+	SidebarMode bool
+	MaxWidth    bool
+	ChatHeight  bool
+	FontFamily  bool
+	FontSize    bool
+	Merge       bool
+	Diff        bool
+	Changes     bool
+	Summary     bool
+	TerminalUI  bool // whether the terminal follow switch is offered
+	Credits     bool // whether the WorkBuddy credits switch is offered
 	// FontScript 表示应用拒绝调试端口，字体只能通过复制到 DevTools 的脚本手动应用。
 	FontScript bool
 }
@@ -324,14 +327,14 @@ type Capabilities struct {
 // Applications mirrors APPLICATIONS from types.ts.
 var Applications = map[FeatureId]Capabilities{
 	Codex:       {Name: "Codex", Sidebar: true, FontFamily: true, FontSize: true, Summary: true, TerminalUI: true},
-	Droid:       {Name: "Droid", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
+	Droid:       {Name: "Droid", Sidebar: true, SidebarMode: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	T3code:      {Name: "T3Code", Sidebar: true, FontFamily: true, FontSize: true, TerminalUI: true},
 	Zcode:       {Name: "ZCode", Sidebar: true, FontFamily: true, FontSize: true, Changes: true, TerminalUI: true},
 	Workbuddy:   {Name: "WorkBuddy", Sidebar: true, MaxWidth: true, FontFamily: true, FontSize: true, Credits: true},
 	Dsh:         {Name: "DSH", Sidebar: true, MaxWidth: true, ChatHeight: true, FontFamily: true, FontSize: true, TerminalUI: true, Credits: true},
-	Paseo:       {Name: "Paseo", Sidebar: true, MaxWidth: true, Merge: true, Diff: true},
+	Paseo:       {Name: "Paseo", Sidebar: true, SidebarMode: true, MaxWidth: true, Merge: true, Diff: true},
 	Claude:      {Name: "Claude", FontFamily: true, FontScript: true},
-	Antigravity: {Name: "Antigravity", Sidebar: true, FontFamily: true, FontSize: true, TerminalUI: true},
+	Antigravity: {Name: "Antigravity", Sidebar: true, SidebarMode: true, FontFamily: true, FontSize: true, TerminalUI: true},
 }
 
 // ApplicationsInOrder returns the capability rows in default menu order.
@@ -342,7 +345,7 @@ func DefaultApplications() map[FeatureId]DroidSettings {
 	ports := DefaultPorts()
 	base := func(id FeatureId) DroidSettings {
 		return DroidSettings{
-			Width: "70vw", SidebarWidth: "15vw", MaxWidth: "90rem", ChatHeight: "80px",
+			Width: "70vw", SidebarWidth: "15vw", SidebarMode: "normal", MaxWidth: "90rem", ChatHeight: "80px",
 			FontFamily: "Maple Mono NF CN", FontSize: 17, FontWeight: 300, BoldFontWeight: 700, TerminalFollow: true,
 			LineHeightPercent: 100, BackgroundColor: "#111111", ForegroundColor: "#F0F0F0",
 			ShowWorkbuddyCredits:   Applications[id].Credits,
@@ -466,6 +469,9 @@ func SettingsErrors(v DroidSettings) map[string]string {
 	if !sidebarRegexp.MatchString(v.SidebarWidth) {
 		errors["sidebarWidth"] = "请输入有效侧栏宽度，例如 15vw、15% 或 280px"
 	}
+	if v.SidebarMode != "normal" && v.SidebarMode != "compact" {
+		errors["sidebarMode"] = "左侧栏模式无效"
+	}
 	if !maxRegexp.MatchString(v.MaxWidth) {
 		errors["maxWidth"] = "请输入有效最大宽度，例如 90rem 或 1200px"
 	}
@@ -554,6 +560,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	if _, ok := input["sidebarWidth"]; !ok {
 		input["sidebarWidth"] = fallback.SidebarWidth
 	}
+	if _, ok := input["sidebarMode"]; !ok {
+		input["sidebarMode"] = fallback.SidebarMode
+	}
 	if _, ok := input["terminalFollow"]; !ok {
 		input["terminalFollow"] = fallback.TerminalFollow
 	}
@@ -588,6 +597,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	}{
 		{"width", "string", &value.Width, nil, nil, defaultDroid.Width},
 		{"sidebarWidth", "string", &value.SidebarWidth, nil, nil, defaultDroid.SidebarWidth},
+		{"sidebarMode", "string", &value.SidebarMode, nil, nil, fallback.SidebarMode},
 		{"maxWidth", "string", &value.MaxWidth, nil, nil, defaultDroid.MaxWidth},
 		{"chatHeight", "string", &value.ChatHeight, nil, nil, defaultDroid.ChatHeight},
 		{"fontFamily", "string", &value.FontFamily, nil, nil, defaultDroid.FontFamily},
@@ -639,7 +649,7 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 	}
 	if errs := SettingsErrors(value); len(errs) > 0 {
 		// Report errors in a stable order matching the renderer's first-error semantics.
-		for _, key := range []string{"width", "sidebarWidth", "maxWidth", "chatHeight", "fontSize", "lineHeightPercent", "fontWeight", "boldFontWeight", "backgroundColor", "foregroundColor", "fontFamily", "port", "executablePath"} {
+		for _, key := range []string{"width", "sidebarWidth", "sidebarMode", "maxWidth", "chatHeight", "fontSize", "lineHeightPercent", "fontWeight", "boldFontWeight", "backgroundColor", "foregroundColor", "fontFamily", "port", "executablePath"} {
 			if msg, ok := errs[key]; ok {
 				return DroidSettings{}, fmt.Errorf("%s", msg)
 			}
@@ -647,6 +657,9 @@ func ParseSettings(input map[string]any, id FeatureId) (DroidSettings, error) {
 		return DroidSettings{}, fmt.Errorf("设置格式无效")
 	}
 	capability := Applications[id]
+	if !capability.SidebarMode {
+		value.SidebarMode = fallback.SidebarMode
+	}
 	if id != Dsh || !slices.Contains([]string{"low", "medium", "high", "xhigh"}, value.DefaultReasoningEffort) {
 		value.DefaultReasoningEffort = fallback.DefaultReasoningEffort
 	}

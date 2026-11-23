@@ -17,6 +17,9 @@ var nativeStyleSamplerSource string
 //go:embed scripts/font-weight.js
 var applicationFontWeightSource string
 
+//go:embed scripts/sidebar-mode.js
+var applicationSidebarModeSource string
+
 // withApplicationStyle 在原有布局注入后应用应用级配色和百分比行高。
 func withApplicationStyle(id string, s settings.DroidSettings, layout string) string {
 	background, foreground := s.BackgroundColor, s.ForegroundColor
@@ -38,9 +41,16 @@ func withApplicationStyle(id string, s settings.DroidSettings, layout string) st
 		boldWeight = 700
 	}
 	weights := strings.NewReplacer("__DECK_FONT_WEIGHT__", itoa(s.FontWeight), "__DECK_BOLD_FONT_WEIGHT__", itoa(boldWeight)).Replace(applicationFontWeightSource)
+	sidebarMode := ""
+	if settings.Applications[id].SidebarMode {
+		sidebarMode = "\n" + strings.NewReplacer(
+			"__DECK_SIDEBAR_MODE_APP__", jsString(id),
+			"__DECK_SIDEBAR_MODE__", jsString(s.SidebarMode),
+		).Replace(applicationSidebarModeSource)
+	}
 	return `(() => { if (window.frameElement?.id === 'deck-native-style-sampler') return true;
 const apply = () => { ` + strings.TrimSuffix(strings.TrimSpace(layout), ";") + `;
-` + nativeStyleSamplerSource + "\n" + weights + "\n" + colors + "\n" + lineHeight + `
+` + nativeStyleSamplerSource + "\n" + weights + "\n" + colors + "\n" + lineHeight + sidebarMode + `
 return true; }; if (document.documentElement) return apply();
 document.addEventListener('DOMContentLoaded', apply, { once: true }); return true; })()`
 }
